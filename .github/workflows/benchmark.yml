@@ -16,48 +16,41 @@ env:
   BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN }}
 
 jobs:
-  setup-test-app:
+  setup-gemfile-hash:
     runs-on: ubuntu-latest
     outputs:
       gemfile-hash: ${{ steps.gemfile.outputs.hash }}
     steps:
-      - name: Clone and prepare Mastodon application
-        run: |
-          # Clone Mastodon repository
-          git clone --depth 1 https://github.com/mastodon/mastodon.git test-app
-          cd test-app
-          
-          # Remove existing Gemfile.lock to force fresh resolution for benchmarking
-          rm -f Gemfile.lock
-          
-          # Update Dockerfile to use Ruby 3.2.0 to match Mastodon requirements  
-          sed -i 's/FROM ruby:.*/FROM ruby:3.2.0/' Dockerfile
+      - name: Checkout Mastodon
+        uses: actions/checkout@v4
+        with:
+          repository: mastodon/mastodon
+          path: mastodon
           
       - name: Generate gemfile hash
         id: gemfile
         run: |
-          cd test-app
+          cd mastodon
           echo "hash=$(sha256sum Gemfile | cut -d' ' -f1)" >> $GITHUB_OUTPUT
-          
-      - name: Upload test app
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-app
-          path: test-app/
 
   benchmark-actions-cache:
-    needs: setup-test-app
+    needs: setup-gemfile-hash
     runs-on: ubuntu-latest
     strategy:
       matrix:
         run: [1, 2, 3]
     steps:
-      - name: Download test app
-        uses: actions/download-artifact@v4
+      - name: Checkout Mastodon
+        uses: actions/checkout@v4
         with:
-          name: test-app
-          path: ./
+          repository: mastodon/mastodon
+          path: mastodon
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libicu-dev libidn11-dev libvips42
+          
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
@@ -67,13 +60,13 @@ jobs:
         uses: actions/cache@v4
         with:
           path: vendor/bundle
-          key: gems-${{ runner.os }}-${{ needs.setup-test-app.outputs.gemfile-hash }}
+          key: gems-${{ runner.os }}-${{ needs.setup-gemfile-hash.outputs.gemfile-hash }}
           restore-keys: |
             gems-${{ runner.os }}-
             
       - name: Benchmark Bundle Install
         run: |
-          cd test-app
+          cd mastodon
           echo "📊 Starting benchmark run ${{ matrix.run }} with actions/cache"
           
           # Configure bundler
@@ -122,7 +115,7 @@ jobs:
           path: benchmark-results/
 
   benchmark-boringcache:
-    needs: setup-test-app
+    needs: setup-gemfile-hash
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -131,12 +124,17 @@ jobs:
       - name: Checkout boringcache actions
         uses: actions/checkout@v4
         
-      - name: Download test app
-        uses: actions/download-artifact@v4
+      - name: Checkout Mastodon
+        uses: actions/checkout@v4
         with:
-          name: test-app
-          path: ./
+          repository: mastodon/mastodon
+          path: mastodon
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libicu-dev libidn11-dev libvips42
+          
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
@@ -146,12 +144,12 @@ jobs:
         uses: ./
         with:
           workspace: boringcache/benchmark
-          entries: gems-${{ runner.os }}-${{ needs.setup-test-app.outputs.gemfile-hash }}:vendor/bundle
+          entries: gems-${{ runner.os }}-${{ needs.setup-gemfile-hash.outputs.gemfile-hash }}:vendor/bundle
           fail-on-cache-miss: false
           
       - name: Benchmark Bundle Install
         run: |
-          cd test-app
+          cd mastodon
           echo "📊 Starting benchmark run ${{ matrix.run }} with boringcache"
           
           # Configure bundler
@@ -183,7 +181,7 @@ jobs:
         uses: ./
         with:
           workspace: boringcache/benchmark
-          entries: vendor/bundle:gems-${{ runner.os }}-${{ needs.setup-test-app.outputs.gemfile-hash }}
+          entries: vendor/bundle:gems-${{ runner.os }}-${{ needs.setup-gemfile-hash.outputs.gemfile-hash }}
           
       - name: Save benchmark results
         run: |
@@ -207,17 +205,17 @@ jobs:
           path: benchmark-results/
 
   benchmark-docker-local:
-    needs: setup-test-app
+    needs: setup-gemfile-hash
     runs-on: ubuntu-latest
     strategy:
       matrix:
         run: [1, 2, 3]
     steps:
-      - name: Download test app
-        uses: actions/download-artifact@v4
+      - name: Checkout Mastodon
+        uses: actions/checkout@v4
         with:
-          name: test-app
-          path: ./
+          repository: mastodon/mastodon
+          path: mastodon
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -227,7 +225,7 @@ jobs:
             
       - name: Build Docker image with local cache
         run: |
-          cd test-app
+          cd mastodon
           echo "📊 Starting Docker benchmark run ${{ matrix.run }} with local cache"
           
           # Time the docker build
@@ -283,7 +281,7 @@ jobs:
           path: benchmark-results/
 
   benchmark-docker-boringcache:
-    needs: setup-test-app
+    needs: setup-gemfile-hash
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -292,11 +290,11 @@ jobs:
       - name: Checkout boringcache actions
         uses: actions/checkout@v4
         
-      - name: Download test app
-        uses: actions/download-artifact@v4
+      - name: Checkout Mastodon
+        uses: actions/checkout@v4
         with:
-          name: test-app
-          path: ./
+          repository: mastodon/mastodon
+          path: mastodon
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -308,12 +306,12 @@ jobs:
         uses: ./
         with:
           workspace: boringcache/benchmark
-          entries: docker-cache-${{ needs.setup-test-app.outputs.gemfile-hash }}:/tmp/.buildx-cache
+          entries: docker-cache-${{ needs.setup-gemfile-hash.outputs.gemfile-hash }}:/tmp/.buildx-cache
           fail-on-cache-miss: false
           
       - name: Build Docker image with boringcache
         run: |
-          cd test-app
+          cd mastodon
           echo "📊 Starting Docker benchmark run ${{ matrix.run }} with boringcache"
           
           # Time the docker build
@@ -352,7 +350,7 @@ jobs:
         uses: ./
         with:
           workspace: boringcache/benchmark
-          entries: /tmp/.buildx-cache:docker-cache-${{ needs.setup-test-app.outputs.gemfile-hash }}
+          entries: /tmp/.buildx-cache:docker-cache-${{ needs.setup-gemfile-hash.outputs.gemfile-hash }}
           
       - name: Save benchmark results
         run: |
