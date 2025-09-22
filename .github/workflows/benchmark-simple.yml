@@ -1,0 +1,100 @@
+name: Simple Cache Benchmark
+
+on:
+  workflow_dispatch:
+
+env:
+  BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN }}
+
+jobs:
+  benchmark-actions-cache:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        run: [1, 2, 3]
+    steps:
+      - name: Checkout Mastodon
+        uses: actions/checkout@v4
+        with:
+          repository: mastodon/mastodon
+          path: mastodon
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libicu-dev libidn11-dev libvips42
+          
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2.0'
+          
+      - name: Cache gems (actions/cache)
+        uses: actions/cache@v4
+        with:
+          path: mastodon/vendor/bundle
+          key: gems-actions-${{ runner.os }}-${{ hashFiles('mastodon/Gemfile.lock') }}-run${{ matrix.run }}
+          restore-keys: |
+            gems-actions-${{ runner.os }}-
+            
+      - name: Bundle install
+        run: |
+          cd mastodon
+          bundle config path vendor/bundle
+          
+          START_TIME=$(date +%s%N)
+          bundle install --jobs 4 --retry 3
+          END_TIME=$(date +%s%N)
+          
+          DURATION=$(( (END_TIME - START_TIME) / 1000000 ))
+          echo "⏱️ actions/cache - Run ${{ matrix.run }}: ${DURATION}ms"
+
+  benchmark-boringcache:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        run: [1, 2, 3]
+    steps:
+      - name: Checkout boringcache actions
+        uses: actions/checkout@v4
+        
+      - name: Checkout Mastodon
+        uses: actions/checkout@v4
+        with:
+          repository: mastodon/mastodon
+          path: mastodon
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libicu-dev libidn11-dev libvips42
+          
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2.0'
+          
+      - name: Restore cache (boringcache)
+        uses: ./
+        with:
+          workspace: boringcache/benchmark
+          entries: gems-boring-${{ runner.os }}-${{ hashFiles('mastodon/Gemfile.lock') }}-run${{ matrix.run }}:mastodon/vendor/bundle
+          fail-on-cache-miss: false
+          
+      - name: Bundle install
+        run: |
+          cd mastodon
+          bundle config path vendor/bundle
+          
+          START_TIME=$(date +%s%N)
+          bundle install --jobs 4 --retry 3
+          END_TIME=$(date +%s%N)
+          
+          DURATION=$(( (END_TIME - START_TIME) / 1000000 ))
+          echo "⏱️ boringcache - Run ${{ matrix.run }}: ${DURATION}ms"
+          
+      - name: Save cache (boringcache)
+        uses: ./
+        with:
+          workspace: boringcache/benchmark
+          entries: mastodon/vendor/bundle:gems-boring-${{ runner.os }}-${{ hashFiles('mastodon/Gemfile.lock') }}-run${{ matrix.run }}
