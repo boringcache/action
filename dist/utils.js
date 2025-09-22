@@ -76,16 +76,34 @@ async function setupBoringCache() {
 async function downloadAndInstallCLI() {
     core.info('📥 Installing BoringCache CLI using official installer...');
     try {
-        await exec.exec('bash', ['-c', 'curl -sSL https://install.boringcache.com/install.sh | sh'], {
-            listeners: {
-                stdout: (data) => {
-                    core.info(data.toString());
-                },
-                stderr: (data) => {
-                    core.info(data.toString());
+        if (os.platform() === 'win32') {
+            await exec.exec('powershell', ['-Command', 'irm https://install.boringcache.com/install.ps1 | iex'], {
+                listeners: {
+                    stdout: (data) => {
+                        core.info(data.toString());
+                    },
+                    stderr: (data) => {
+                        core.info(data.toString());
+                    }
                 }
-            }
-        });
+            });
+            core.addPath('C:\\Users\\runneradmin\\.boringcache\\bin');
+            core.exportVariable('PATH', `C:\\Users\\runneradmin\\.boringcache\\bin;${process.env.PATH}`);
+        }
+        else {
+            await exec.exec('bash', ['-c', 'curl -sSL https://install.boringcache.com/install.sh | sh'], {
+                listeners: {
+                    stdout: (data) => {
+                        core.info(data.toString());
+                    },
+                    stderr: (data) => {
+                        core.info(data.toString());
+                    }
+                }
+            });
+            const homeDir = os.homedir();
+            core.addPath(`${homeDir}/.boringcache/bin`);
+        }
         core.info('✅ BoringCache CLI installed successfully');
     }
     catch (error) {

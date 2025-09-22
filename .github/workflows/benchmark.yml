@@ -1,0 +1,689 @@
+name: Performance Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: 'Number of benchmark runs'
+        required: false
+        default: '3'
+        type: string
+  schedule:
+    - cron: '0 2 * * 0'
+
+env:
+  BENCHMARK_RUNS: ${{ github.event.inputs.runs || '3' }}
+  BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN }}
+
+jobs:
+  setup-test-app:
+    runs-on: ubuntu-latest
+    outputs:
+      gemfile-hash: ${{ steps.gemfile.outputs.hash }}
+    steps:
+      - name: Create Rails test app with heavy dependencies
+        run: |
+          mkdir -p test-app
+          cd test-app
+          
+          cat > Gemfile << 'EOF'
+          source 'https://rubygems.org'
+          git_source(:github) { |repo| "https://github.com/#{repo}.git" }
+          
+          ruby '3.1.0'
+          
+          # Core Rails
+          gem 'rails', '~> 7.0.0'
+          gem 'sqlite3', '~> 1.4'
+          gem 'puma', '~> 5.0'
+          gem 'sass-rails', '>= 6'
+          gem 'webpacker', '~> 5.0'
+          gem 'turbo-rails'
+          gem 'stimulus-rails'
+          gem 'jbuilder', '~> 2.7'
+          gem 'bootsnap', '>= 1.4.4', require: false
+          
+          # Heavy dependencies for benchmarking
+          gem 'nokogiri'
+          gem 'activerecord-import'
+          gem 'sidekiq'
+          gem 'redis'
+          gem 'image_processing', '~> 1.2'
+          gem 'aws-sdk-s3'
+          gem 'elasticsearch-rails'
+          gem 'searchkick'
+          gem 'kaminari'
+          gem 'devise'
+          gem 'omniauth'
+          gem 'omniauth-rails_csrf_protection'
+          gem 'cancancan'
+          gem 'rolify'
+          gem 'friendly_id'
+          gem 'acts_as_tree'
+          gem 'ancestry'
+          gem 'paperclip'
+          gem 'carrierwave'
+          gem 'mini_magick'
+          gem 'rmagick'
+          gem 'prawn'
+          gem 'prawn-table'
+          gem 'wicked_pdf'
+          gem 'wkhtmltopdf-binary'
+          gem 'rubyzip'
+          gem 'axlsx'
+          gem 'roo'
+          gem 'spreadsheet'
+          gem 'chronic'
+          gem 'whenever'
+          gem 'delayed_job_active_record'
+          gem 'daemons'
+          gem 'geocoder'
+          gem 'gmaps4rails'
+          gem 'httparty'
+          gem 'faraday'
+          gem 'rest-client'
+          gem 'net-ssh'
+          gem 'net-sftp'
+          gem 'ftp'
+          gem 'mail'
+          gem 'gruff'
+          gem 'chunky_png'
+          gem 'rqrcode'
+          gem 'barby'
+          gem 'pdf-reader'
+          gem 'rtesseract'
+          gem 'ruby-opencv'
+          gem 'ruby-vips'
+          gem 'redis-rails'
+          gem 'redis-rack-cache'
+          gem 'dalli'
+          gem 'connection_pool'
+          gem 'concurrent-ruby'
+          gem 'parallel'
+          gem 'celluloid'
+          gem 'eventmachine'
+          gem 'em-http-request'
+          gem 'em-websocket'
+          gem 'faye-websocket'
+          gem 'websocket-rails'
+          gem 'pusher'
+          gem 'pusher-client'
+          gem 'twilio-ruby'
+          gem 'stripe'
+          gem 'paypal-sdk-rest'
+          gem 'braintree'
+          gem 'activemerchant'
+          gem 'money-rails'
+          gem 'paranoia'
+          gem 'acts_as_paranoid'
+          gem 'paper_trail'
+          gem 'audited'
+          gem 'lograge'
+          gem 'newrelic_rpm'
+          gem 'sentry-raven'
+          gem 'rollbar'
+          gem 'bugsnag'
+          gem 'airbrake'
+          gem 'exception_notification'
+          gem 'slack-notifier'
+          gem 'hipchat'
+          gem 'slack-ruby-client'
+          gem 'discordrb'
+          gem 'telegram-bot-ruby'
+          gem 'facebook-messenger'
+          gem 'line-bot-api'
+          gem 'ruby-graphql'
+          gem 'graphiql-rails'
+          gem 'graphql-batch'
+          gem 'rack-cors'
+          gem 'rack-attack'
+          gem 'rack-throttle'
+          gem 'redis-throttle'
+          gem 'rack-mini-profiler'
+          gem 'memory_profiler'
+          gem 'ruby-prof'
+          gem 'benchmark-ips'
+          gem 'derailed_benchmarks'
+          gem 'bullet'
+          gem 'brakeman'
+          gem 'bundler-audit'
+          gem 'rubocop'
+          gem 'rubocop-rails'
+          gem 'rubocop-performance'
+          gem 'rubocop-rspec'
+          gem 'solargraph'
+          gem 'yard'
+          gem 'redcarpet'
+          gem 'github-markup'
+          gem 'rouge'
+          gem 'coderay'
+          gem 'kramdown'
+          gem 'bluecloth'
+          
+          group :development, :test do
+            gem 'byebug', platforms: [:mri, :mingw, :x64_mingw]
+            gem 'rspec-rails'
+            gem 'factory_bot_rails'
+            gem 'faker'
+            gem 'capybara'
+            gem 'selenium-webdriver'
+            gem 'webdrivers'
+            gem 'database_cleaner'
+            gem 'shoulda-matchers'
+            gem 'vcr'
+            gem 'webmock'
+            gem 'timecop'
+            gem 'guard'
+            gem 'guard-rspec'
+            gem 'guard-livereload'
+            gem 'spring-commands-rspec'
+            gem 'launchy'
+          end
+          
+          group :development do
+            gem 'web-console', '>= 4.1.0'
+            gem 'listen', '~> 3.3'
+            gem 'spring'
+            gem 'letter_opener'
+            gem 'better_errors'
+            gem 'binding_of_caller'
+            gem 'pry-rails'
+            gem 'awesome_print'
+            gem 'hirb'
+            gem 'rails_layout'
+            gem 'quiet_assets'
+            gem 'rails-erd'
+            gem 'annotate'
+          end
+          EOF
+          
+          cat > Dockerfile << 'EOF'
+          FROM ruby:3.1.0
+          
+          RUN apt-get update -qq && apt-get install -y \
+            build-essential \
+            libpq-dev \
+            nodejs \
+            npm \
+            imagemagick \
+            libvips-dev \
+            && rm -rf /var/lib/apt/lists/*
+          
+          WORKDIR /app
+          
+          COPY Gemfile Gemfile.lock ./
+          RUN bundle install
+          
+          COPY . .
+          
+          EXPOSE 3000
+          CMD ["rails", "server", "-b", "0.0.0.0"]
+          EOF
+          
+          # Create a dummy Gemfile.lock to simulate a real project
+          echo "GEM" > Gemfile.lock
+          echo "  remote: https://rubygems.org/" >> Gemfile.lock
+          echo "  specs:" >> Gemfile.lock
+          echo "" >> Gemfile.lock
+          echo "PLATFORMS" >> Gemfile.lock
+          echo "  ruby" >> Gemfile.lock
+          echo "" >> Gemfile.lock
+          echo "DEPENDENCIES" >> Gemfile.lock
+          
+      - name: Generate gemfile hash
+        id: gemfile
+        run: |
+          cd test-app
+          echo "hash=$(sha256sum Gemfile | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+          
+      - name: Upload test app
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-app
+          path: test-app/
+
+  benchmark-actions-cache:
+    needs: setup-test-app
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        run: [1, 2, 3]
+    steps:
+      - name: Download test app
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-app
+          path: test-app/
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.1.0'
+          
+      - name: Cache gems (actions/cache)
+        uses: actions/cache@v4
+        with:
+          path: vendor/bundle
+          key: gems-${{ runner.os }}-${{ needs.setup-test-app.outputs.gemfile-hash }}
+          restore-keys: |
+            gems-${{ runner.os }}-
+            
+      - name: Benchmark Bundle Install
+        run: |
+          cd test-app
+          echo "📊 Starting benchmark run ${{ matrix.run }} with actions/cache"
+          
+          # Configure bundler
+          bundle config path vendor/bundle
+          bundle config set --local deployment 'true'
+          
+          # Time the bundle install
+          START_TIME=$(date +%s%N)
+          bundle install --jobs 4 --retry 3
+          END_TIME=$(date +%s%N)
+          
+          # Calculate duration in milliseconds
+          DURATION=$(( (END_TIME - START_TIME) / 1000000 ))
+          
+          echo "⏱️ Bundle install took: ${DURATION}ms"
+          echo "BUNDLE_DURATION=${DURATION}" >> $GITHUB_ENV
+          
+          # Check cache status
+          if [ -d "vendor/bundle" ] && [ "$(find vendor/bundle -name '*.gem' | wc -l)" -gt 0 ]; then
+            echo "✅ Cache was used (found existing gems)"
+            echo "CACHE_STATUS=hit" >> $GITHUB_ENV
+          else
+            echo "❌ Cache miss (downloading gems)"
+            echo "CACHE_STATUS=miss" >> $GITHUB_ENV
+          fi
+          
+      - name: Save benchmark results
+        run: |
+          mkdir -p benchmark-results
+          cat > benchmark-results/actions-cache-run-${{ matrix.run }}.json << EOF
+          {
+            "tool": "actions/cache",
+            "run": ${{ matrix.run }},
+            "duration_ms": ${{ env.BUNDLE_DURATION }},
+            "cache_status": "${{ env.CACHE_STATUS }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "runner_os": "${{ runner.os }}",
+            "ruby_version": "3.1.0"
+          }
+          EOF
+          
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-actions-cache-run-${{ matrix.run }}
+          path: benchmark-results/
+
+  benchmark-boringcache:
+    needs: setup-test-app
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        run: [1, 2, 3]
+    steps:
+      - name: Checkout boringcache actions
+        uses: actions/checkout@v4
+        
+      - name: Download test app
+        uses: actions/download-artifact@v4
+        with:
+          name: test-app
+          path: test-app/
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.1.0'
+          
+      - name: Restore gems (boringcache)
+        uses: ./
+        with:
+          workspace: boringcache/benchmark
+          entries: gems-${{ runner.os }}-${{ needs.setup-test-app.outputs.gemfile-hash }}:vendor/bundle
+          fail-on-cache-miss: false
+          
+      - name: Benchmark Bundle Install
+        run: |
+          cd test-app
+          echo "📊 Starting benchmark run ${{ matrix.run }} with boringcache"
+          
+          # Configure bundler
+          bundle config path vendor/bundle
+          bundle config set --local deployment 'true'
+          
+          # Time the bundle install
+          START_TIME=$(date +%s%N)
+          bundle install --jobs 4 --retry 3
+          END_TIME=$(date +%s%N)
+          
+          # Calculate duration in milliseconds
+          DURATION=$(( (END_TIME - START_TIME) / 1000000 ))
+          
+          echo "⏱️ Bundle install took: ${DURATION}ms"
+          echo "BUNDLE_DURATION=${DURATION}" >> $GITHUB_ENV
+          
+          # Check cache status
+          if [ -d "vendor/bundle" ] && [ "$(find vendor/bundle -name '*.gem' | wc -l)" -gt 0 ]; then
+            echo "✅ Cache was used (found existing gems)"
+            echo "CACHE_STATUS=hit" >> $GITHUB_ENV
+          else
+            echo "❌ Cache miss (downloading gems)"
+            echo "CACHE_STATUS=miss" >> $GITHUB_ENV
+          fi
+          
+      - name: Save gems after install (boringcache)
+        if: env.CACHE_STATUS == 'miss'
+        uses: ./
+        with:
+          workspace: boringcache/benchmark
+          entries: vendor/bundle:gems-${{ runner.os }}-${{ needs.setup-test-app.outputs.gemfile-hash }}
+          
+      - name: Save benchmark results
+        run: |
+          mkdir -p benchmark-results
+          cat > benchmark-results/boringcache-run-${{ matrix.run }}.json << EOF
+          {
+            "tool": "boringcache",
+            "run": ${{ matrix.run }},
+            "duration_ms": ${{ env.BUNDLE_DURATION }},
+            "cache_status": "${{ env.CACHE_STATUS }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "runner_os": "${{ runner.os }}",
+            "ruby_version": "3.1.0"
+          }
+          EOF
+          
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-boringcache-run-${{ matrix.run }}
+          path: benchmark-results/
+
+  benchmark-docker-local:
+    needs: setup-test-app
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        run: [1, 2, 3]
+    steps:
+      - name: Download test app
+        uses: actions/download-artifact@v4
+        with:
+          name: test-app
+          path: test-app/
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            image=moby/buildkit:buildx-stable-1
+            
+      - name: Build Docker image with local cache
+        run: |
+          cd test-app
+          echo "📊 Starting Docker benchmark run ${{ matrix.run }} with local cache"
+          
+          # Time the docker build
+          START_TIME=$(date +%s%N)
+          
+          docker buildx build \
+            --cache-from type=local,src=/tmp/.buildx-cache \
+            --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=max \
+            --load \
+            --tag benchmark-app:local-${{ matrix.run }} \
+            .
+            
+          END_TIME=$(date +%s%N)
+          
+          # Calculate duration in milliseconds
+          DURATION=$(( (END_TIME - START_TIME) / 1000000 ))
+          
+          echo "⏱️ Docker build took: ${DURATION}ms"
+          echo "DOCKER_DURATION=${DURATION}" >> $GITHUB_ENV
+          
+          # Check if cache was used
+          if [ -d "/tmp/.buildx-cache" ] && [ "$(find /tmp/.buildx-cache -type f | wc -l)" -gt 0 ]; then
+            echo "✅ Docker cache was used"
+            echo "CACHE_STATUS=hit" >> $GITHUB_ENV
+          else
+            echo "❌ Docker cache miss"
+            echo "CACHE_STATUS=miss" >> $GITHUB_ENV
+          fi
+          
+          # Move cache
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+          
+      - name: Save benchmark results
+        run: |
+          mkdir -p benchmark-results
+          cat > benchmark-results/docker-local-run-${{ matrix.run }}.json << EOF
+          {
+            "tool": "docker-local-cache",
+            "run": ${{ matrix.run }},
+            "duration_ms": ${{ env.DOCKER_DURATION }},
+            "cache_status": "${{ env.CACHE_STATUS }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "runner_os": "${{ runner.os }}",
+            "build_type": "docker"
+          }
+          EOF
+          
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-docker-local-run-${{ matrix.run }}
+          path: benchmark-results/
+
+  benchmark-docker-boringcache:
+    needs: setup-test-app
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        run: [1, 2, 3]
+    steps:
+      - name: Checkout boringcache actions
+        uses: actions/checkout@v4
+        
+      - name: Download test app
+        uses: actions/download-artifact@v4
+        with:
+          name: test-app
+          path: test-app/
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            image=moby/buildkit:buildx-stable-1
+            
+      - name: Restore Docker cache (boringcache)
+        uses: ./
+        with:
+          workspace: boringcache/benchmark
+          entries: docker-cache-${{ needs.setup-test-app.outputs.gemfile-hash }}:/tmp/.buildx-cache
+          fail-on-cache-miss: false
+          
+      - name: Build Docker image with boringcache
+        run: |
+          cd test-app
+          echo "📊 Starting Docker benchmark run ${{ matrix.run }} with boringcache"
+          
+          # Time the docker build
+          START_TIME=$(date +%s%N)
+          
+          docker buildx build \
+            --cache-from type=local,src=/tmp/.buildx-cache \
+            --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=max \
+            --load \
+            --tag benchmark-app:boringcache-${{ matrix.run }} \
+            .
+            
+          END_TIME=$(date +%s%N)
+          
+          # Calculate duration in milliseconds
+          DURATION=$(( (END_TIME - START_TIME) / 1000000 ))
+          
+          echo "⏱️ Docker build took: ${DURATION}ms"
+          echo "DOCKER_DURATION=${DURATION}" >> $GITHUB_ENV
+          
+          # Check if cache was used
+          if [ -d "/tmp/.buildx-cache" ] && [ "$(find /tmp/.buildx-cache -type f | wc -l)" -gt 0 ]; then
+            echo "✅ Docker cache was used"
+            echo "CACHE_STATUS=hit" >> $GITHUB_ENV
+          else
+            echo "❌ Docker cache miss"
+            echo "CACHE_STATUS=miss" >> $GITHUB_ENV
+          fi
+          
+          # Move cache
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+          
+      - name: Save Docker cache (boringcache)
+        if: env.CACHE_STATUS == 'miss'
+        uses: ./
+        with:
+          workspace: boringcache/benchmark
+          entries: /tmp/.buildx-cache:docker-cache-${{ needs.setup-test-app.outputs.gemfile-hash }}
+          
+      - name: Save benchmark results
+        run: |
+          mkdir -p benchmark-results
+          cat > benchmark-results/docker-boringcache-run-${{ matrix.run }}.json << EOF
+          {
+            "tool": "docker-boringcache",
+            "run": ${{ matrix.run }},
+            "duration_ms": ${{ env.DOCKER_DURATION }},
+            "cache_status": "${{ env.CACHE_STATUS }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "runner_os": "${{ runner.os }}",
+            "build_type": "docker"
+          }
+          EOF
+          
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-docker-boringcache-run-${{ matrix.run }}
+          path: benchmark-results/
+
+  analyze-results:
+    needs: [benchmark-actions-cache, benchmark-boringcache, benchmark-docker-local, benchmark-docker-boringcache]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all benchmark results
+        uses: actions/download-artifact@v4
+        with:
+          path: all-results/
+          
+      - name: Analyze and report results
+        run: |
+          echo "# 📊 Performance Benchmark Results" > benchmark-report.md
+          echo "" >> benchmark-report.md
+          echo "**Benchmark Date:** $(date -u +%Y-%m-%d\ %H:%M:%S\ UTC)" >> benchmark-report.md
+          echo "**Runner:** ${{ runner.os }}" >> benchmark-report.md
+          echo "**Ruby Version:** 3.1.0" >> benchmark-report.md
+          echo "" >> benchmark-report.md
+          
+          # Combine all results
+          find all-results -name "*.json" -exec cat {} \; | jq -s . > combined-results.json
+          
+          # Analyze Ruby bundle install results
+          echo "## 🚀 Ruby Bundle Install Performance" >> benchmark-report.md
+          echo "" >> benchmark-report.md
+          
+          # Calculate averages for actions/cache
+          ACTIONS_CACHE_AVG=$(cat combined-results.json | jq '[.[] | select(.tool == "actions/cache") | .duration_ms] | add / length')
+          ACTIONS_CACHE_MIN=$(cat combined-results.json | jq '[.[] | select(.tool == "actions/cache") | .duration_ms] | min')
+          ACTIONS_CACHE_MAX=$(cat combined-results.json | jq '[.[] | select(.tool == "actions/cache") | .duration_ms] | max')
+          
+          # Calculate averages for boringcache
+          BORINGCACHE_AVG=$(cat combined-results.json | jq '[.[] | select(.tool == "boringcache") | .duration_ms] | add / length')
+          BORINGCACHE_MIN=$(cat combined-results.json | jq '[.[] | select(.tool == "boringcache") | .duration_ms] | min')
+          BORINGCACHE_MAX=$(cat combined-results.json | jq '[.[] | select(.tool == "boringcache") | .duration_ms] | max')
+          
+          echo "| Tool | Avg (ms) | Min (ms) | Max (ms) |" >> benchmark-report.md
+          echo "|------|----------|----------|----------|" >> benchmark-report.md
+          echo "| actions/cache | ${ACTIONS_CACHE_AVG} | ${ACTIONS_CACHE_MIN} | ${ACTIONS_CACHE_MAX} |" >> benchmark-report.md
+          echo "| boringcache | ${BORINGCACHE_AVG} | ${BORINGCACHE_MIN} | ${BORINGCACHE_MAX} |" >> benchmark-report.md
+          echo "" >> benchmark-report.md
+          
+          # Calculate performance improvement
+          IMPROVEMENT=$(echo "scale=2; ($ACTIONS_CACHE_AVG - $BORINGCACHE_AVG) / $ACTIONS_CACHE_AVG * 100" | bc -l)
+          if (( $(echo "$IMPROVEMENT > 0" | bc -l) )); then
+            echo "**🎉 BoringCache is ${IMPROVEMENT}% faster than actions/cache**" >> benchmark-report.md
+          else
+            IMPROVEMENT=$(echo "scale=2; ($BORINGCACHE_AVG - $ACTIONS_CACHE_AVG) / $BORINGCACHE_AVG * 100" | bc -l)
+            echo "**📊 actions/cache is ${IMPROVEMENT}% faster than BoringCache**" >> benchmark-report.md
+          fi
+          echo "" >> benchmark-report.md
+          
+          # Analyze Docker build results
+          echo "## 🐳 Docker Build Performance" >> benchmark-report.md
+          echo "" >> benchmark-report.md
+          
+          # Calculate averages for docker local cache
+          DOCKER_LOCAL_AVG=$(cat combined-results.json | jq '[.[] | select(.tool == "docker-local-cache") | .duration_ms] | add / length')
+          DOCKER_LOCAL_MIN=$(cat combined-results.json | jq '[.[] | select(.tool == "docker-local-cache") | .duration_ms] | min')
+          DOCKER_LOCAL_MAX=$(cat combined-results.json | jq '[.[] | select(.tool == "docker-local-cache") | .duration_ms] | max')
+          
+          # Calculate averages for docker boringcache
+          DOCKER_BC_AVG=$(cat combined-results.json | jq '[.[] | select(.tool == "docker-boringcache") | .duration_ms] | add / length')
+          DOCKER_BC_MIN=$(cat combined-results.json | jq '[.[] | select(.tool == "docker-boringcache") | .duration_ms] | min')
+          DOCKER_BC_MAX=$(cat combined-results.json | jq '[.[] | select(.tool == "docker-boringcache") | .duration_ms] | max')
+          
+          echo "| Tool | Avg (ms) | Min (ms) | Max (ms) |" >> benchmark-report.md
+          echo "|------|----------|----------|----------|" >> benchmark-report.md
+          echo "| Docker Local Cache | ${DOCKER_LOCAL_AVG} | ${DOCKER_LOCAL_MIN} | ${DOCKER_LOCAL_MAX} |" >> benchmark-report.md
+          echo "| Docker + BoringCache | ${DOCKER_BC_AVG} | ${DOCKER_BC_MIN} | ${DOCKER_BC_MAX} |" >> benchmark-report.md
+          echo "" >> benchmark-report.md
+          
+          # Calculate Docker performance improvement
+          DOCKER_IMPROVEMENT=$(echo "scale=2; ($DOCKER_LOCAL_AVG - $DOCKER_BC_AVG) / $DOCKER_LOCAL_AVG * 100" | bc -l)
+          if (( $(echo "$DOCKER_IMPROVEMENT > 0" | bc -l) )); then
+            echo "**🎉 Docker + BoringCache is ${DOCKER_IMPROVEMENT}% faster than local cache**" >> benchmark-report.md
+          else
+            DOCKER_IMPROVEMENT=$(echo "scale=2; ($DOCKER_BC_AVG - $DOCKER_LOCAL_AVG) / $DOCKER_BC_AVG * 100" | bc -l)
+            echo "**📊 Docker local cache is ${DOCKER_IMPROVEMENT}% faster than BoringCache**" >> benchmark-report.md
+          fi
+          echo "" >> benchmark-report.md
+          
+          # Add detailed results
+          echo "## 📋 Detailed Results" >> benchmark-report.md
+          echo "" >> benchmark-report.md
+          echo "### Raw Data" >> benchmark-report.md
+          echo "" >> benchmark-report.md
+          echo '```json' >> benchmark-report.md
+          cat combined-results.json | jq . >> benchmark-report.md
+          echo '```' >> benchmark-report.md
+          
+          # Display the report
+          cat benchmark-report.md
+          
+      - name: Upload benchmark report
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-report
+          path: |
+            benchmark-report.md
+            combined-results.json
+            
+      - name: Comment on PR (if applicable)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('benchmark-report.md', 'utf8');
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: report
+            });
