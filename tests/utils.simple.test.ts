@@ -81,6 +81,13 @@ describe('Utils (Simple)', () => {
       ]);
     });
 
+    it('should handle the exact failing Windows case', () => {
+      const entries = parseEntries('test-windows-latest-17921180603:D:\\a\\action\\action\\test-cache', 'restore');
+      expect(entries).toEqual([
+        { tag: 'test-windows-latest-17921180603', path: expect.stringContaining('D:\\a\\action\\action\\test-cache') }
+      ]);
+    });
+
     it('should handle Windows drive paths in save format', () => {
       const entries = parseEntries('D:\\a\\action\\action\\test-cache:test-key', 'save');
       expect(entries).toEqual([

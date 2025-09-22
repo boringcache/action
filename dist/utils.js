@@ -160,12 +160,18 @@ function parseEntries(entriesInput, action) {
         if (action === 'save') {
             // For save format (path:tag), find the LAST colon to handle Windows paths like "C:\path:tag"
             colonIndex = entry.lastIndexOf(':');
+            // Check if this is just a Windows drive letter (e.g., "C:something" with no tag)
+            if (colonIndex === 1) {
+                throw new Error(`Invalid entry format: ${entry}. Expected format: ${action === 'save' ? 'path:tag' : 'tag:path'}`);
+            }
         }
         else {
-            // For restore format (tag:path), find the FIRST colon after any potential Windows drive letter
-            colonIndex = entry.indexOf(':', entry.length > 1 && entry[1] === ':' ? 2 : 0);
+            // For restore format (tag:path), find the first colon for the separator
+            colonIndex = entry.indexOf(':');
+            // Check if the path part starts with a Windows drive (e.g., "tag:C:\path")
+            // If so, this is valid - the tag ends at the first colon
         }
-        if (colonIndex === -1 || (action === 'save' && colonIndex === 1)) {
+        if (colonIndex === -1) {
             throw new Error(`Invalid entry format: ${entry}. Expected format: ${action === 'save' ? 'path:tag' : 'tag:path'}`);
         }
         const parts = [entry.substring(0, colonIndex), entry.substring(colonIndex + 1)];
