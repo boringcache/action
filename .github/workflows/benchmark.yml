@@ -21,214 +21,17 @@ jobs:
     outputs:
       gemfile-hash: ${{ steps.gemfile.outputs.hash }}
     steps:
-      - name: Create Rails test app with heavy dependencies
+      - name: Clone and prepare Mastodon application
         run: |
-          mkdir -p test-app
+          # Clone Mastodon repository
+          git clone --depth 1 https://github.com/mastodon/mastodon.git test-app
           cd test-app
           
-          cat > Gemfile << 'EOF'
-          source 'https://rubygems.org'
-          git_source(:github) { |repo| "https://github.com/#{repo}.git" }
+          # Remove existing Gemfile.lock to force fresh resolution for benchmarking
+          rm -f Gemfile.lock
           
-          ruby '3.1.0'
-          
-          # Core Rails
-          gem 'rails', '~> 7.0.0'
-          gem 'sqlite3', '~> 1.4'
-          gem 'puma', '~> 5.0'
-          gem 'sass-rails', '>= 6'
-          gem 'webpacker', '~> 5.0'
-          gem 'turbo-rails'
-          gem 'stimulus-rails'
-          gem 'jbuilder', '~> 2.7'
-          gem 'bootsnap', '>= 1.4.4', require: false
-          
-          # Heavy dependencies for benchmarking
-          gem 'nokogiri'
-          gem 'activerecord-import'
-          gem 'sidekiq'
-          gem 'redis'
-          gem 'image_processing', '~> 1.2'
-          gem 'aws-sdk-s3'
-          gem 'elasticsearch-rails'
-          gem 'searchkick'
-          gem 'kaminari'
-          gem 'devise'
-          gem 'omniauth'
-          gem 'omniauth-rails_csrf_protection'
-          gem 'cancancan'
-          gem 'rolify'
-          gem 'friendly_id'
-          gem 'acts_as_tree'
-          gem 'ancestry'
-          gem 'paperclip'
-          gem 'carrierwave'
-          gem 'mini_magick'
-          gem 'rmagick'
-          gem 'prawn'
-          gem 'prawn-table'
-          gem 'wicked_pdf'
-          gem 'wkhtmltopdf-binary'
-          gem 'rubyzip'
-          gem 'axlsx'
-          gem 'roo'
-          gem 'spreadsheet'
-          gem 'chronic'
-          gem 'whenever'
-          gem 'delayed_job_active_record'
-          gem 'daemons'
-          gem 'geocoder'
-          gem 'gmaps4rails'
-          gem 'httparty'
-          gem 'faraday'
-          gem 'rest-client'
-          gem 'net-ssh'
-          gem 'net-sftp'
-          gem 'ftp'
-          gem 'mail'
-          gem 'gruff'
-          gem 'chunky_png'
-          gem 'rqrcode'
-          gem 'barby'
-          gem 'pdf-reader'
-          gem 'rtesseract'
-          gem 'ruby-opencv'
-          gem 'ruby-vips'
-          gem 'redis-rails'
-          gem 'redis-rack-cache'
-          gem 'dalli'
-          gem 'connection_pool'
-          gem 'concurrent-ruby'
-          gem 'parallel'
-          gem 'celluloid'
-          gem 'eventmachine'
-          gem 'em-http-request'
-          gem 'em-websocket'
-          gem 'faye-websocket'
-          gem 'websocket-rails'
-          gem 'pusher'
-          gem 'pusher-client'
-          gem 'twilio-ruby'
-          gem 'stripe'
-          gem 'paypal-sdk-rest'
-          gem 'braintree'
-          gem 'activemerchant'
-          gem 'money-rails'
-          gem 'paranoia'
-          gem 'acts_as_paranoid'
-          gem 'paper_trail'
-          gem 'audited'
-          gem 'lograge'
-          gem 'newrelic_rpm'
-          gem 'sentry-raven'
-          gem 'rollbar'
-          gem 'bugsnag'
-          gem 'airbrake'
-          gem 'exception_notification'
-          gem 'slack-notifier'
-          gem 'hipchat'
-          gem 'slack-ruby-client'
-          gem 'discordrb'
-          gem 'telegram-bot-ruby'
-          gem 'facebook-messenger'
-          gem 'line-bot-api'
-          gem 'ruby-graphql'
-          gem 'graphiql-rails'
-          gem 'graphql-batch'
-          gem 'rack-cors'
-          gem 'rack-attack'
-          gem 'rack-throttle'
-          gem 'redis-throttle'
-          gem 'rack-mini-profiler'
-          gem 'memory_profiler'
-          gem 'ruby-prof'
-          gem 'benchmark-ips'
-          gem 'derailed_benchmarks'
-          gem 'bullet'
-          gem 'brakeman'
-          gem 'bundler-audit'
-          gem 'rubocop'
-          gem 'rubocop-rails'
-          gem 'rubocop-performance'
-          gem 'rubocop-rspec'
-          gem 'solargraph'
-          gem 'yard'
-          gem 'redcarpet'
-          gem 'github-markup'
-          gem 'rouge'
-          gem 'coderay'
-          gem 'kramdown'
-          gem 'bluecloth'
-          
-          group :development, :test do
-            gem 'byebug', platforms: [:mri, :mingw, :x64_mingw]
-            gem 'rspec-rails'
-            gem 'factory_bot_rails'
-            gem 'faker'
-            gem 'capybara'
-            gem 'selenium-webdriver'
-            gem 'webdrivers'
-            gem 'database_cleaner'
-            gem 'shoulda-matchers'
-            gem 'vcr'
-            gem 'webmock'
-            gem 'timecop'
-            gem 'guard'
-            gem 'guard-rspec'
-            gem 'guard-livereload'
-            gem 'spring-commands-rspec'
-            gem 'launchy'
-          end
-          
-          group :development do
-            gem 'web-console', '>= 4.1.0'
-            gem 'listen', '~> 3.3'
-            gem 'spring'
-            gem 'letter_opener'
-            gem 'better_errors'
-            gem 'binding_of_caller'
-            gem 'pry-rails'
-            gem 'awesome_print'
-            gem 'hirb'
-            gem 'rails_layout'
-            gem 'quiet_assets'
-            gem 'rails-erd'
-            gem 'annotate'
-          end
-          EOF
-          
-          cat > Dockerfile << 'EOF'
-          FROM ruby:3.1.0
-          
-          RUN apt-get update -qq && apt-get install -y \
-            build-essential \
-            libpq-dev \
-            nodejs \
-            npm \
-            imagemagick \
-            libvips-dev \
-            && rm -rf /var/lib/apt/lists/*
-          
-          WORKDIR /app
-          
-          COPY Gemfile Gemfile.lock ./
-          RUN bundle install
-          
-          COPY . .
-          
-          EXPOSE 3000
-          CMD ["rails", "server", "-b", "0.0.0.0"]
-          EOF
-          
-          # Create a dummy Gemfile.lock to simulate a real project
-          echo "GEM" > Gemfile.lock
-          echo "  remote: https://rubygems.org/" >> Gemfile.lock
-          echo "  specs:" >> Gemfile.lock
-          echo "" >> Gemfile.lock
-          echo "PLATFORMS" >> Gemfile.lock
-          echo "  ruby" >> Gemfile.lock
-          echo "" >> Gemfile.lock
-          echo "DEPENDENCIES" >> Gemfile.lock
+          # Update Dockerfile to use Ruby 3.2.0 to match Mastodon requirements  
+          sed -i 's/FROM ruby:.*/FROM ruby:3.2.0/' Dockerfile
           
       - name: Generate gemfile hash
         id: gemfile
@@ -250,15 +53,15 @@ jobs:
         run: [1, 2, 3]
     steps:
       - name: Download test app
-        uses: actions/upload-artifact@v4
+        uses: actions/download-artifact@v4
         with:
           name: test-app
-          path: test-app/
+          path: ./
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.1.0'
+          ruby-version: '3.2.0'
           
       - name: Cache gems (actions/cache)
         uses: actions/cache@v4
@@ -275,7 +78,7 @@ jobs:
           
           # Configure bundler
           bundle config path vendor/bundle
-          bundle config set --local deployment 'true'
+          bundle config unset deployment
           
           # Time the bundle install
           START_TIME=$(date +%s%N)
@@ -308,7 +111,7 @@ jobs:
             "cache_status": "${{ env.CACHE_STATUS }}",
             "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
             "runner_os": "${{ runner.os }}",
-            "ruby_version": "3.1.0"
+            "ruby_version": "3.2.0"
           }
           EOF
           
@@ -332,12 +135,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: test-app
-          path: test-app/
+          path: ./
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.1.0'
+          ruby-version: '3.2.0'
           
       - name: Restore gems (boringcache)
         uses: ./
@@ -353,7 +156,7 @@ jobs:
           
           # Configure bundler
           bundle config path vendor/bundle
-          bundle config set --local deployment 'true'
+          bundle config unset deployment
           
           # Time the bundle install
           START_TIME=$(date +%s%N)
@@ -393,7 +196,7 @@ jobs:
             "cache_status": "${{ env.CACHE_STATUS }}",
             "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
             "runner_os": "${{ runner.os }}",
-            "ruby_version": "3.1.0"
+            "ruby_version": "3.2.0"
           }
           EOF
           
@@ -414,7 +217,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: test-app
-          path: test-app/
+          path: ./
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -493,7 +296,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: test-app
-          path: test-app/
+          path: ./
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
