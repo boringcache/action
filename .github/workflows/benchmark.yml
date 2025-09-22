@@ -59,7 +59,7 @@ jobs:
       - name: Cache gems (actions/cache)
         uses: actions/cache@v4
         with:
-          path: vendor/bundle
+          path: mastodon/vendor/bundle
           key: gems-${{ runner.os }}-${{ needs.setup-gemfile-hash.outputs.gemfile-hash }}
           restore-keys: |
             gems-${{ runner.os }}-
@@ -85,12 +85,20 @@ jobs:
           echo "BUNDLE_DURATION=${DURATION}" >> $GITHUB_ENV
           
           # Check cache status
+          echo "Debug: Checking for vendor/bundle directory..."
+          ls -la vendor/ || echo "vendor/ directory not found"
           if [ -d "vendor/bundle" ] && [ "$(find vendor/bundle -name '*.gem' | wc -l)" -gt 0 ]; then
             echo "✅ Cache was used (found existing gems)"
             echo "CACHE_STATUS=hit" >> $GITHUB_ENV
           else
             echo "❌ Cache miss (downloading gems)"
             echo "CACHE_STATUS=miss" >> $GITHUB_ENV
+          fi
+          
+          # Ensure the cache directory exists for saving
+          if [ ! -d "vendor/bundle" ]; then
+            echo "Creating vendor/bundle directory for cache saving"
+            mkdir -p vendor/bundle
           fi
           
       - name: Save benchmark results
@@ -144,7 +152,7 @@ jobs:
         uses: ./
         with:
           workspace: boringcache/benchmark
-          entries: gems-${{ runner.os }}-${{ needs.setup-gemfile-hash.outputs.gemfile-hash }}:vendor/bundle
+          entries: gems-${{ runner.os }}-${{ needs.setup-gemfile-hash.outputs.gemfile-hash }}:mastodon/vendor/bundle
           fail-on-cache-miss: false
           
       - name: Benchmark Bundle Install
@@ -176,12 +184,17 @@ jobs:
             echo "CACHE_STATUS=miss" >> $GITHUB_ENV
           fi
           
+      - name: Debug cache status
+        run: |
+          echo "CACHE_STATUS value: '${{ env.CACHE_STATUS }}'"
+          echo "Should save cache: $([ '${{ env.CACHE_STATUS }}' = 'miss' ] && echo 'yes' || echo 'no')"
+          
       - name: Save gems after install (boringcache)
         if: env.CACHE_STATUS == 'miss'
         uses: ./
         with:
           workspace: boringcache/benchmark
-          entries: vendor/bundle:gems-${{ runner.os }}-${{ needs.setup-gemfile-hash.outputs.gemfile-hash }}
+          entries: mastodon/vendor/bundle:gems-${{ runner.os }}-${{ needs.setup-gemfile-hash.outputs.gemfile-hash }}
           
       - name: Save benchmark results
         run: |
