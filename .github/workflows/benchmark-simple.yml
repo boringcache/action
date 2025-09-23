@@ -140,11 +140,70 @@ jobs:
       matrix:
         run: [1, 2, 3]
     steps:
-      - name: Checkout test app
-        uses: actions/checkout@v4
-        with:
-          repository: docker/getting-started
-          path: docker-app
+      - name: Create test Node.js app
+        run: |
+          mkdir -p docker-app
+          cd docker-app
+          
+          # Create package.json
+          cat > package.json << 'EOF'
+          {
+            "name": "docker-benchmark-app",
+            "version": "1.0.0",
+            "description": "Test app for Docker cache benchmarking",
+            "main": "index.js",
+            "dependencies": {
+              "express": "^4.18.0",
+              "lodash": "^4.17.21",
+              "moment": "^2.29.4",
+              "axios": "^1.6.0",
+              "uuid": "^9.0.0",
+              "cors": "^2.8.5",
+              "helmet": "^7.1.0",
+              "compression": "^1.7.4",
+              "morgan": "^1.10.0",
+              "dotenv": "^16.3.0"
+            }
+          }
+          EOF
+          
+          # Create app.js
+          cat > app.js << 'EOF'
+          const express = require('express');
+          const cors = require('cors');
+          const helmet = require('helmet');
+          const compression = require('compression');
+          const morgan = require('morgan');
+          require('dotenv').config();
+          
+          const app = express();
+          const port = process.env.PORT || 3000;
+          
+          app.use(helmet());
+          app.use(cors());
+          app.use(compression());
+          app.use(morgan('combined'));
+          app.use(express.json());
+          
+          app.get('/', (req, res) => {
+            res.json({ message: 'Docker cache benchmark app running!' });
+          });
+          
+          app.listen(port, () => {
+            console.log(`Server running on port ${port}`);
+          });
+          EOF
+          
+          # Create Dockerfile
+          cat > Dockerfile << 'EOF'
+          FROM node:18-alpine
+          WORKDIR /app
+          COPY package*.json ./
+          RUN npm ci --only=production
+          COPY . .
+          EXPOSE 3000
+          CMD ["node", "app.js"]
+          EOF
           
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -153,7 +212,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/.buildx-cache
-          key: docker-actions-${{ runner.os }}-buildx-${{ hashFiles('docker-app/Dockerfile') }}-run${{ matrix.run }}
+          key: docker-actions-${{ runner.os }}-buildx-${{ hashFiles('docker-app/package.json') }}-run${{ matrix.run }}
           restore-keys: |
             docker-actions-${{ runner.os }}-buildx-
             
@@ -199,11 +258,70 @@ jobs:
       - name: Checkout boringcache actions
         uses: actions/checkout@v4
         
-      - name: Checkout test app
-        uses: actions/checkout@v4
-        with:
-          repository: docker/getting-started
-          path: docker-app
+      - name: Create test Node.js app
+        run: |
+          mkdir -p docker-app
+          cd docker-app
+          
+          # Create package.json
+          cat > package.json << 'EOF'
+          {
+            "name": "docker-benchmark-app",
+            "version": "1.0.0",
+            "description": "Test app for Docker cache benchmarking",
+            "main": "index.js",
+            "dependencies": {
+              "express": "^4.18.0",
+              "lodash": "^4.17.21",
+              "moment": "^2.29.4",
+              "axios": "^1.6.0",
+              "uuid": "^9.0.0",
+              "cors": "^2.8.5",
+              "helmet": "^7.1.0",
+              "compression": "^1.7.4",
+              "morgan": "^1.10.0",
+              "dotenv": "^16.3.0"
+            }
+          }
+          EOF
+          
+          # Create app.js
+          cat > app.js << 'EOF'
+          const express = require('express');
+          const cors = require('cors');
+          const helmet = require('helmet');
+          const compression = require('compression');
+          const morgan = require('morgan');
+          require('dotenv').config();
+          
+          const app = express();
+          const port = process.env.PORT || 3000;
+          
+          app.use(helmet());
+          app.use(cors());
+          app.use(compression());
+          app.use(morgan('combined'));
+          app.use(express.json());
+          
+          app.get('/', (req, res) => {
+            res.json({ message: 'Docker cache benchmark app running!' });
+          });
+          
+          app.listen(port, () => {
+            console.log(`Server running on port ${port}`);
+          });
+          EOF
+          
+          # Create Dockerfile
+          cat > Dockerfile << 'EOF'
+          FROM node:18-alpine
+          WORKDIR /app
+          COPY package*.json ./
+          RUN npm ci --only=production
+          COPY . .
+          EXPOSE 3000
+          CMD ["node", "app.js"]
+          EOF
           
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -228,7 +346,7 @@ jobs:
         uses: ./
         with:
           workspace: boringcache/benchmark
-          entries: "docker-boring-${{ runner.os }}-buildx-${{ hashFiles('docker-app/Dockerfile') }}-run${{ matrix.run }}:/tmp/.buildx-cache"
+          entries: "docker-boring-${{ runner.os }}-buildx-${{ hashFiles('docker-app/package.json') }}-run${{ matrix.run }}:/tmp/.buildx-cache"
           
       - name: Build Docker image
         run: |
@@ -320,7 +438,7 @@ jobs:
           fi
           
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## 🐳 Docker Build Times (Docker Getting Started App)" >> $GITHUB_STEP_SUMMARY
+          echo "## 🐳 Docker Build Times (Node.js Express App)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Run | actions/cache | boringcache | Improvement |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|---------------|-------------|-------------|" >> $GITHUB_STEP_SUMMARY
@@ -365,5 +483,5 @@ jobs:
           echo "---" >> $GITHUB_STEP_SUMMARY
           echo "💡 **Notes**:" >> $GITHUB_STEP_SUMMARY
           echo "- Bundle times include Ruby gem installation for Mastodon (~500MB)" >> $GITHUB_STEP_SUMMARY
-          echo "- Docker times include building Docker Getting Started app with layer caching" >> $GITHUB_STEP_SUMMARY
+          echo "- Docker times include building Node.js Express app with npm dependencies (~10 packages)" >> $GITHUB_STEP_SUMMARY
           echo "- All tests run 3 times to measure consistency" >> $GITHUB_STEP_SUMMARY
