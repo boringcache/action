@@ -25688,19 +25688,10 @@ const fs = __importStar(__nccwpck_require__(9896));
 const utils_1 = __nccwpck_require__(2219);
 async function run() {
     try {
-        const isPostAction = core.getState('cache-hit') !== '';
-        if (isPostAction) {
-            const cacheHit = core.getState('cache-hit');
-            if (cacheHit === 'true') {
-                core.info('✅ Cache was hit, skipping save');
-                return;
-            }
-            const cacheEntries = core.getState('cache-entries');
-            const workspace = core.getState('cache-workspace');
-            if (!cacheEntries || !workspace) {
-                core.warning('Missing cache state - skipping save');
-                return;
-            }
+        const cacheEntries = core.getState('cache-entries');
+        const workspace = core.getState('cache-workspace');
+        if (cacheEntries && workspace) {
+            // Post-job save
             await (0, utils_1.setupBoringCache)();
             await saveCache(workspace, cacheEntries);
         }

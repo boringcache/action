@@ -6,25 +6,11 @@ import { setupBoringCache, validateInputs, parseEntries, getWorkspace, convertCa
 async function run(): Promise<void> {
   try {
 
-    const isPostAction = core.getState('cache-hit') !== '';
+    const cacheEntries = core.getState('cache-entries');
+    const workspace = core.getState('cache-workspace');
     
-    if (isPostAction) {
-
-      const cacheHit = core.getState('cache-hit');
-      
-      if (cacheHit === 'true') {
-        core.info('✅ Cache was hit, skipping save');
-        return;
-      }
-
-      const cacheEntries = core.getState('cache-entries');
-      const workspace = core.getState('cache-workspace');
-
-      if (!cacheEntries || !workspace) {
-        core.warning('Missing cache state - skipping save');
-        return;
-      }
-
+    if (cacheEntries && workspace) {
+      // Post-job save
       await setupBoringCache();
       await saveCache(workspace, cacheEntries);
     } else {
