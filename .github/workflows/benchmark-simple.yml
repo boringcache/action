@@ -74,6 +74,23 @@ jobs:
         with:
           ruby-version: '3.2.0'
           
+      - name: Cache BoringCache CLI
+        uses: ./
+        id: cache-cli
+        with:
+          workspace: boringcache/benchmark
+          entries: boringcache-cli-${{ runner.os }}-v0.4.0:/usr/local/bin/boringcache
+          fail-on-cache-miss: false
+          
+      - name: Install BoringCache CLI
+        if: steps.cache-cli.outputs.cache-hit != 'true'
+        run: |
+          curl -sSL https://install.boringcache.com/install.sh | sh
+          
+      - name: Authenticate BoringCache CLI
+        run: |
+          boringcache auth --token ${{ env.BORINGCACHE_API_TOKEN }}
+          
       - name: Cache gems (boringcache) 
         uses: ./
         with:
