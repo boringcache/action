@@ -20,7 +20,7 @@ describe('Utils (Simple)', () => {
     it('should accept workspace format', () => {
       expect(() => validateInputs({
         workspace: 'my-org/my-project',
-        entries: 'node_modules:deps',
+        entries: 'deps:node_modules',
       })).not.toThrow();
     });
 
@@ -40,7 +40,7 @@ describe('Utils (Simple)', () => {
     it('should reject invalid workspace format', () => {
       expect(() => validateInputs({
         workspace: 'invalid',
-        entries: 'node_modules:deps',
+        entries: 'deps:node_modules',
       })).toThrow('Workspace must be in format "namespace/workspace"');
     });
   });
@@ -88,10 +88,10 @@ describe('Utils (Simple)', () => {
       ]);
     });
 
-    it('should handle Windows drive paths in save format', () => {
-      const entries = parseEntries('D:\\a\\action\\action\\test-cache:test-key', 'save');
+    it('should handle Windows drive paths in unified tag:path format', () => {
+      const entries = parseEntries('test-key:D:\\a\\action\\action\\test-cache', 'save');
       expect(entries).toEqual([
-        { path: expect.stringContaining('D:\\a\\action\\action\\test-cache'), tag: 'test-key' }
+        { tag: 'test-key', path: expect.stringContaining('D:\\a\\action\\action\\test-cache') }
       ]);
     });
 

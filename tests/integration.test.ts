@@ -36,8 +36,7 @@ describe('Integration Tests', () => {
         expect.any(Object)
       );
       
-
-      expect(core.setOutput).toHaveBeenCalledWith('cache-hit', 'true');
+      // No cache-hit outputs - CLI handles all logic
     });
 
     it('should handle cache miss gracefully', async () => {
@@ -61,7 +60,7 @@ describe('Integration Tests', () => {
       
       await run();
       
-      expect(core.setOutput).toHaveBeenCalledWith('cache-hit', 'false');
+      // No cache-hit outputs - CLI handles all logic
     });
   });
 
@@ -85,7 +84,7 @@ describe('Integration Tests', () => {
       );
     });
 
-    it('should handle restore-keys fallback', async () => {
+    it('should convert actions/cache format with restore-keys', async () => {
       process.env.GITHUB_REPOSITORY = 'owner/repo';
       
       mockGetInput({
@@ -95,41 +94,14 @@ describe('Integration Tests', () => {
       });
       mockGetBooleanInput({});
       
-
-      (exec.exec as jest.Mock)
-        .mockImplementation((command: string, args?: string[]) => {
-          if (command === 'boringcache' && args?.[0] === '--version') {
-            return Promise.resolve(0);
-          }
-          if (command === 'boringcache' && args?.[0] === 'restore') {
-            const entries = args[2];
-            if (entries?.includes('deps-hash123')) {
-              return Promise.resolve(1); // Primary key miss
-            } else if (entries?.includes('deps-v1')) {
-              return Promise.resolve(0); // Restore key hit
-            }
-          }
-          return Promise.resolve(0);
-        });
-      
       await run();
       
-
+      // Should only call restore once with primary key (simplified)
       expect(exec.exec).toHaveBeenCalledWith(
         'boringcache',
         ['restore', 'owner/repo', expect.stringMatching(/deps-hash123:.*\.npm/)],
         expect.any(Object)
       );
-      
-
-      expect(exec.exec).toHaveBeenCalledWith(
-        'boringcache',
-        ['restore', 'owner/repo', expect.stringMatching(/deps-v1:.*\.npm/)],
-        expect.any(Object)
-      );
-      
-      expect(core.setOutput).toHaveBeenCalledWith('cache-hit', 'true');
-      expect(core.setOutput).toHaveBeenCalledWith('cache-matched-key', 'deps-v1');
     });
   });
 

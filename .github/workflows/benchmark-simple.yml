@@ -48,6 +48,16 @@ jobs:
           
           DURATION=$(( (END_TIME - START_TIME) / 1000000 ))
           echo "⏱️ actions/cache - Run ${{ matrix.run }}: ${DURATION}ms"
+          
+          # Save timing data for summary
+          mkdir -p benchmark-results
+          echo "${DURATION}" > benchmark-results/actions-cache-run${{ matrix.run }}.txt
+          
+      - name: Upload actions/cache results
+        uses: actions/upload-artifact@v4
+        with:
+          name: actions-cache-results-${{ matrix.run }}
+          path: benchmark-results/
 
   benchmark-boringcache:
     runs-on: ubuntu-latest
@@ -107,3 +117,73 @@ jobs:
           
           DURATION=$(( (END_TIME - START_TIME) / 1000000 ))
           echo "⏱️ boringcache - Run ${{ matrix.run }}: ${DURATION}ms"
+          
+          # Save timing data for summary
+          mkdir -p benchmark-results
+          echo "${DURATION}" > benchmark-results/boringcache-run${{ matrix.run }}.txt
+          
+      - name: Upload boringcache results
+        uses: actions/upload-artifact@v4
+        with:
+          name: boringcache-results-${{ matrix.run }}
+          path: benchmark-results/
+
+  benchmark-summary:
+    runs-on: ubuntu-latest
+    needs: [benchmark-actions-cache, benchmark-boringcache]
+    if: always()
+    steps:
+      - name: Download all results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: "*-results-*"
+          merge-multiple: true
+          
+      - name: Generate benchmark summary
+        run: |
+          echo "# 🏁 Cache Performance Benchmark Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 Bundle Install Times (Mastodon App)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Run | actions/cache | boringcache | Improvement |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|---------------|-------------|-------------|" >> $GITHUB_STEP_SUMMARY
+          
+          # Calculate results for each run
+          for run in 1 2 3; do
+            if [[ -f "actions-cache-run${run}.txt" && -f "boringcache-run${run}.txt" ]]; then
+              actions_time=$(cat "actions-cache-run${run}.txt")
+              boring_time=$(cat "boringcache-run${run}.txt")
+              
+              # Calculate improvement (actions_time / boring_time)
+              if [[ $boring_time -gt 0 ]]; then
+                improvement=$(echo "scale=1; $actions_time / $boring_time" | bc -l)
+                echo "| $run | ${actions_time}ms | ${boring_time}ms | ${improvement}x faster |" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "| $run | ${actions_time}ms | ${boring_time}ms | N/A |" >> $GITHUB_STEP_SUMMARY
+              fi
+            else
+              echo "| $run | Missing | Missing | N/A |" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Calculate averages
+          if [[ -f "actions-cache-run1.txt" && -f "actions-cache-run2.txt" && -f "actions-cache-run3.txt" && 
+                -f "boringcache-run1.txt" && -f "boringcache-run2.txt" && -f "boringcache-run3.txt" ]]; then
+            
+            actions_avg=$(( ($(cat actions-cache-run1.txt) + $(cat actions-cache-run2.txt) + $(cat actions-cache-run3.txt)) / 3 ))
+            boring_avg=$(( ($(cat boringcache-run1.txt) + $(cat boringcache-run2.txt) + $(cat boringcache-run3.txt)) / 3 ))
+            
+            if [[ $boring_avg -gt 0 ]]; then
+              avg_improvement=$(echo "scale=1; $actions_avg / $boring_avg" | bc -l)
+              echo "## 🎯 Average Performance" >> $GITHUB_STEP_SUMMARY
+              echo "- **actions/cache**: ${actions_avg}ms" >> $GITHUB_STEP_SUMMARY  
+              echo "- **boringcache**: ${boring_avg}ms" >> $GITHUB_STEP_SUMMARY
+              echo "- **Improvement**: ${avg_improvement}x faster with boringcache" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "💡 **Note**: Times include bundle install for Mastodon Ruby gems (~500MB)" >> $GITHUB_STEP_SUMMARY
