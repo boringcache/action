@@ -74,10 +74,9 @@ jobs:
         with:
           ruby-version: '3.2.0'
           
-      - name: Cache gems (boringcache)
+      - name: Cache gems (boringcache) 
         uses: ./
         with:
-          workspace: boringcache/benchmark
           path: mastodon/vendor/bundle
           key: gems-boring-${{ runner.os }}-${{ hashFiles('mastodon/Gemfile.lock') }}-run${{ matrix.run }}
           
