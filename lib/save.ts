@@ -46,7 +46,9 @@ async function run(): Promise<void> {
 
       let entriesString: string;
       if (inputs.entries) {
-        entriesString = inputs.entries;
+        // CLI format entries are in restore format (tag:path), convert to save format (path:tag)
+        const restoreEntries = parseEntries(inputs.entries, 'restore');
+        entriesString = restoreEntries.map(e => `${e.path}:${e.tag}`).join(',');
       } else {
 
         entriesString = convertCacheFormatToEntries(inputs, 'save');

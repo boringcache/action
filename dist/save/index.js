@@ -25718,7 +25718,9 @@ async function run() {
             const workspace = (0, utils_1.getWorkspace)(inputs);
             let entriesString;
             if (inputs.entries) {
-                entriesString = inputs.entries;
+                // CLI format entries are in restore format (tag:path), convert to save format (path:tag)
+                const restoreEntries = (0, utils_1.parseEntries)(inputs.entries, 'restore');
+                entriesString = restoreEntries.map(e => `${e.path}:${e.tag}`).join(',');
             }
             else {
                 entriesString = (0, utils_1.convertCacheFormatToEntries)(inputs, 'save');

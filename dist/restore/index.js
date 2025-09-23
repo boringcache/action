@@ -25756,7 +25756,10 @@ async function run() {
         core.setOutput('cache-hit', cacheHit.toString());
         core.setOutput('cache-primary-key', primaryKey);
         core.setOutput('cache-matched-key', matchedKey);
-        if (!cacheHit && !inputs.lookupOnly) {
+        if (cacheHit) {
+            core.saveState('cache-hit', 'true');
+        }
+        else if (!inputs.lookupOnly) {
             const saveEntries = entries.map(e => `${e.path}:${e.tag}`).join(',');
             core.saveState('cache-entries', saveEntries);
             core.saveState('cache-workspace', workspace);
