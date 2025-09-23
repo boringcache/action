@@ -74,12 +74,12 @@ jobs:
         with:
           ruby-version: '3.2.0'
           
-      - name: Restore cache (boringcache)
+      - name: Cache gems (boringcache)
         uses: ./
         with:
           workspace: boringcache/benchmark
-          entries: gems-boring-${{ runner.os }}-${{ hashFiles('mastodon/Gemfile.lock') }}-run${{ matrix.run }}:mastodon/vendor/bundle
-          fail-on-cache-miss: false
+          path: mastodon/vendor/bundle
+          key: gems-boring-${{ runner.os }}-${{ hashFiles('mastodon/Gemfile.lock') }}-run${{ matrix.run }}
           
       - name: Bundle install
         run: |
@@ -92,9 +92,3 @@ jobs:
           
           DURATION=$(( (END_TIME - START_TIME) / 1000000 ))
           echo "⏱️ boringcache - Run ${{ matrix.run }}: ${DURATION}ms"
-          
-      - name: Save cache (boringcache)
-        uses: ./
-        with:
-          workspace: boringcache/benchmark
-          entries: mastodon/vendor/bundle:gems-boring-${{ runner.os }}-${{ hashFiles('mastodon/Gemfile.lock') }}-run${{ matrix.run }}
