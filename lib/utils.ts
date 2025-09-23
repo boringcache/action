@@ -40,7 +40,8 @@ async function downloadAndInstallCLI(): Promise<void> {
   
   try {
     if (os.platform() === 'win32') {
-      await exec.exec('powershell', ['-Command', 'irm https://install.boringcache.com/install.ps1 | iex'], {
+      // Use bash installer through Git Bash (available on Windows runners)
+      await exec.exec('bash', ['-c', 'curl -sSL https://install.boringcache.com/install.sh | sh'], {
         listeners: {
           stdout: (data: Buffer) => {
             core.info(data.toString());
@@ -51,8 +52,12 @@ async function downloadAndInstallCLI(): Promise<void> {
         }
       });
       
+      // Add Windows installation paths (CLI installs to .local/bin on Windows)
+      const homeDir = os.homedir();
+      core.addPath(`${homeDir}/.local/bin`);
+      core.addPath('/home/runneradmin/.local/bin');
+      core.addPath(`${homeDir}\\.boringcache\\bin`);
       core.addPath('C:\\Users\\runneradmin\\.boringcache\\bin');
-      core.exportVariable('PATH', `C:\\Users\\runneradmin\\.boringcache\\bin;${process.env.PATH}`);
     } else {
       await exec.exec('bash', ['-c', 'curl -sSL https://install.boringcache.com/install.sh | sh'], {
         listeners: {

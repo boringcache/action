@@ -52,12 +52,15 @@ jobs:
           # Save timing data for summary
           mkdir -p benchmark-results
           echo "${DURATION}" > benchmark-results/actions-cache-run${{ matrix.run }}.txt
+          echo "📁 Created benchmark-results/actions-cache-run${{ matrix.run }}.txt with ${DURATION}ms"
+          ls -la benchmark-results/
           
       - name: Upload actions/cache results
         uses: actions/upload-artifact@v4
         with:
           name: actions-cache-results-${{ matrix.run }}
           path: benchmark-results/
+          if-no-files-found: warn
 
   benchmark-boringcache:
     runs-on: ubuntu-latest
@@ -121,16 +124,148 @@ jobs:
           # Save timing data for summary
           mkdir -p benchmark-results
           echo "${DURATION}" > benchmark-results/boringcache-run${{ matrix.run }}.txt
+          echo "📁 Created benchmark-results/boringcache-run${{ matrix.run }}.txt with ${DURATION}ms"
+          ls -la benchmark-results/
           
       - name: Upload boringcache results
         uses: actions/upload-artifact@v4
         with:
           name: boringcache-results-${{ matrix.run }}
           path: benchmark-results/
+          if-no-files-found: warn
+
+  benchmark-docker-actions:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        run: [1, 2, 3]
+    steps:
+      - name: Checkout test app
+        uses: actions/checkout@v4
+        with:
+          repository: docker/getting-started
+          path: docker-app
+          
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Cache Docker layers (actions/cache)
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: docker-actions-${{ runner.os }}-buildx-${{ hashFiles('docker-app/Dockerfile') }}-run${{ matrix.run }}
+          restore-keys: |
+            docker-actions-${{ runner.os }}-buildx-
+            
+      - name: Build Docker image
+        run: |
+          cd docker-app
+          
+          START_TIME=$(date +%s%N)
+          docker buildx build \
+            --cache-from=type=local,src=/tmp/.buildx-cache \
+            --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
+            --load \
+            --tag getting-started:latest \
+            .
+          END_TIME=$(date +%s%N)
+          
+          DURATION=$(( (END_TIME - START_TIME) / 1000000 ))
+          echo "⏱️ Docker actions/cache - Run ${{ matrix.run }}: ${DURATION}ms"
+          
+          # Move cache to avoid ever-growing cache
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+          
+          # Save timing data for summary
+          mkdir -p benchmark-results
+          echo "${DURATION}" > benchmark-results/docker-actions-run${{ matrix.run }}.txt
+          echo "📁 Created benchmark-results/docker-actions-run${{ matrix.run }}.txt with ${DURATION}ms"
+          ls -la benchmark-results/
+          
+      - name: Upload Docker actions/cache results
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-actions-results-${{ matrix.run }}
+          path: benchmark-results/
+          if-no-files-found: warn
+
+  benchmark-docker-boringcache:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        run: [1, 2, 3]
+    steps:
+      - name: Checkout boringcache actions
+        uses: actions/checkout@v4
+        
+      - name: Checkout test app
+        uses: actions/checkout@v4
+        with:
+          repository: docker/getting-started
+          path: docker-app
+          
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Cache BoringCache CLI
+        uses: ./
+        id: cache-cli
+        with:
+          workspace: boringcache/benchmark
+          entries: "boringcache-cli-${{ runner.os }}-v0.4.0:/usr/local/bin/boringcache"
+          
+      - name: Install BoringCache CLI
+        if: steps.cache-cli.outputs.cache-hit != 'true'
+        run: |
+          curl -sSL https://install.boringcache.com/install.sh | sh
+          
+      - name: Authenticate BoringCache CLI
+        run: |
+          boringcache auth --token ${{ env.BORINGCACHE_API_TOKEN }}
+          
+      - name: Cache Docker layers (boringcache)
+        uses: ./
+        with:
+          workspace: boringcache/benchmark
+          entries: "docker-boring-${{ runner.os }}-buildx-${{ hashFiles('docker-app/Dockerfile') }}-run${{ matrix.run }}:/tmp/.buildx-cache"
+          
+      - name: Build Docker image
+        run: |
+          cd docker-app
+          
+          START_TIME=$(date +%s%N)
+          docker buildx build \
+            --cache-from=type=local,src=/tmp/.buildx-cache \
+            --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
+            --load \
+            --tag getting-started:latest \
+            .
+          END_TIME=$(date +%s%N)
+          
+          DURATION=$(( (END_TIME - START_TIME) / 1000000 ))
+          echo "⏱️ Docker boringcache - Run ${{ matrix.run }}: ${DURATION}ms"
+          
+          # Move cache to avoid ever-growing cache
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+          
+          # Save timing data for summary
+          mkdir -p benchmark-results
+          echo "${DURATION}" > benchmark-results/docker-boring-run${{ matrix.run }}.txt
+          echo "📁 Created benchmark-results/docker-boring-run${{ matrix.run }}.txt with ${DURATION}ms"
+          ls -la benchmark-results/
+          
+      - name: Upload Docker boringcache results
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-boringcache-results-${{ matrix.run }}
+          path: benchmark-results/
+          if-no-files-found: warn
 
   benchmark-summary:
     runs-on: ubuntu-latest
-    needs: [benchmark-actions-cache, benchmark-boringcache]
+    needs: [benchmark-actions-cache, benchmark-boringcache, benchmark-docker-actions, benchmark-docker-boringcache]
     if: always()
     steps:
       - name: Download all results
@@ -143,7 +278,7 @@ jobs:
         run: |
           echo "# 🏁 Cache Performance Benchmark Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## 📊 Bundle Install Times (Mastodon App)" >> $GITHUB_STEP_SUMMARY
+          echo "## 📦 Bundle Install Times (Mastodon Ruby Gems ~500MB)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Run | actions/cache | boringcache | Improvement |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|---------------|-------------|-------------|" >> $GITHUB_STEP_SUMMARY
@@ -177,7 +312,7 @@ jobs:
             
             if [[ $boring_avg -gt 0 ]]; then
               avg_improvement=$(echo "scale=1; $actions_avg / $boring_avg" | bc -l)
-              echo "## 🎯 Average Performance" >> $GITHUB_STEP_SUMMARY
+              echo "## 🎯 Bundle Install Average Performance" >> $GITHUB_STEP_SUMMARY
               echo "- **actions/cache**: ${actions_avg}ms" >> $GITHUB_STEP_SUMMARY  
               echo "- **boringcache**: ${boring_avg}ms" >> $GITHUB_STEP_SUMMARY
               echo "- **Improvement**: ${avg_improvement}x faster with boringcache" >> $GITHUB_STEP_SUMMARY
@@ -185,5 +320,50 @@ jobs:
           fi
           
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🐳 Docker Build Times (Docker Getting Started App)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Run | actions/cache | boringcache | Improvement |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|---------------|-------------|-------------|" >> $GITHUB_STEP_SUMMARY
+          
+          # Calculate Docker results for each run
+          for run in 1 2 3; do
+            if [[ -f "docker-actions-run${run}.txt" && -f "docker-boring-run${run}.txt" ]]; then
+              docker_actions_time=$(cat "docker-actions-run${run}.txt")
+              docker_boring_time=$(cat "docker-boring-run${run}.txt")
+              
+              # Calculate improvement (actions_time / boring_time)
+              if [[ $docker_boring_time -gt 0 ]]; then
+                docker_improvement=$(echo "scale=1; $docker_actions_time / $docker_boring_time" | bc -l)
+                echo "| $run | ${docker_actions_time}ms | ${docker_boring_time}ms | ${docker_improvement}x faster |" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "| $run | ${docker_actions_time}ms | ${docker_boring_time}ms | N/A |" >> $GITHUB_STEP_SUMMARY
+              fi
+            else
+              echo "| $run | Missing | Missing | N/A |" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Calculate Docker averages
+          if [[ -f "docker-actions-run1.txt" && -f "docker-actions-run2.txt" && -f "docker-actions-run3.txt" && 
+                -f "docker-boring-run1.txt" && -f "docker-boring-run2.txt" && -f "docker-boring-run3.txt" ]]; then
+            
+            docker_actions_avg=$(( ($(cat docker-actions-run1.txt) + $(cat docker-actions-run2.txt) + $(cat docker-actions-run3.txt)) / 3 ))
+            docker_boring_avg=$(( ($(cat docker-boring-run1.txt) + $(cat docker-boring-run2.txt) + $(cat docker-boring-run3.txt)) / 3 ))
+            
+            if [[ $docker_boring_avg -gt 0 ]]; then
+              docker_avg_improvement=$(echo "scale=1; $docker_actions_avg / $docker_boring_avg" | bc -l)
+              echo "## 🐳 Docker Build Average Performance" >> $GITHUB_STEP_SUMMARY
+              echo "- **actions/cache**: ${docker_actions_avg}ms" >> $GITHUB_STEP_SUMMARY  
+              echo "- **boringcache**: ${docker_boring_avg}ms" >> $GITHUB_STEP_SUMMARY
+              echo "- **Improvement**: ${docker_avg_improvement}x faster with boringcache" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
-          echo "💡 **Note**: Times include bundle install for Mastodon Ruby gems (~500MB)" >> $GITHUB_STEP_SUMMARY
+          echo "💡 **Notes**:" >> $GITHUB_STEP_SUMMARY
+          echo "- Bundle times include Ruby gem installation for Mastodon (~500MB)" >> $GITHUB_STEP_SUMMARY
+          echo "- Docker times include building Docker Getting Started app with layer caching" >> $GITHUB_STEP_SUMMARY
+          echo "- All tests run 3 times to measure consistency" >> $GITHUB_STEP_SUMMARY
