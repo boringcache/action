@@ -79,8 +79,7 @@ jobs:
         id: cache-cli
         with:
           workspace: boringcache/benchmark
-          entries: boringcache-cli-${{ runner.os }}-v0.4.0:/usr/local/bin/boringcache
-          fail-on-cache-miss: false
+          entries: "/usr/local/bin/boringcache:boringcache-cli-${{ runner.os }}-v0.4.0"
           
       - name: Install BoringCache CLI
         if: steps.cache-cli.outputs.cache-hit != 'true'
@@ -95,7 +94,7 @@ jobs:
         uses: ./
         with:
           workspace: boringcache/benchmark
-          entries: gems-boring-${{ runner.os }}-${{ hashFiles('mastodon/Gemfile.lock') }}-run${{ matrix.run }}:mastodon/vendor/bundle
+          entries: "mastodon/vendor/bundle:gems-boring-${{ runner.os }}-${{ hashFiles('mastodon/Gemfile.lock') }}-run${{ matrix.run }}"
           
       - name: Bundle install
         run: |
