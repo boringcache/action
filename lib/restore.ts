@@ -35,10 +35,8 @@ export async function run(): Promise<void> {
       entriesString
     ], { ignoreReturnCode: true });
 
-    // Set up for post-save (convert restore format to save format)
-    const entries = parseEntries(entriesString, 'restore');
-    const saveEntries = entries.map(e => `${e.path}:${e.tag}`).join(',');
-    core.saveState('cache-entries', saveEntries);
+    // Set up for post-save (both use same tag:path format now)
+    core.saveState('cache-entries', entriesString);
     core.saveState('cache-workspace', workspace);
 
   } catch (error) {

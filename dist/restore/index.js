@@ -25715,10 +25715,8 @@ async function run() {
             workspace,
             entriesString
         ], { ignoreReturnCode: true });
-        // Set up for post-save (convert restore format to save format)
-        const entries = (0, utils_1.parseEntries)(entriesString, 'restore');
-        const saveEntries = entries.map(e => `${e.path}:${e.tag}`).join(',');
-        core.saveState('cache-entries', saveEntries);
+        // Set up for post-save (both use same tag:path format now)
+        core.saveState('cache-entries', entriesString);
         core.saveState('cache-workspace', workspace);
     }
     catch (error) {
@@ -25910,31 +25908,15 @@ function parseEntries(entriesInput, action) {
         .map(entry => entry.trim())
         .filter(entry => entry)
         .map(entry => {
-        let colonIndex;
-        if (action === 'save') {
-            // For save format (path:tag), find the LAST colon to handle Windows paths like "C:\path:tag"
-            colonIndex = entry.lastIndexOf(':');
-            // Check if this is just a Windows drive letter (e.g., "C:something" with no tag)
-            if (colonIndex === 1) {
-                throw new Error(`Invalid entry format: ${entry}. Expected format: ${action === 'save' ? 'path:tag' : 'tag:path'}`);
-            }
-        }
-        else {
-            // For restore format (tag:path), find the first colon for the separator
-            colonIndex = entry.indexOf(':');
-            // Check if the path part starts with a Windows drive (e.g., "tag:C:\path")
-            // If so, this is valid - the tag ends at the first colon
-        }
+        // Both save and restore now use tag:path format (unified)
+        // Find the first colon for the separator
+        const colonIndex = entry.indexOf(':');
         if (colonIndex === -1) {
-            throw new Error(`Invalid entry format: ${entry}. Expected format: ${action === 'save' ? 'path:tag' : 'tag:path'}`);
+            throw new Error(`Invalid entry format: ${entry}. Expected format: tag:path`);
         }
         const parts = [entry.substring(0, colonIndex), entry.substring(colonIndex + 1)];
-        if (action === 'save') {
-            return { path: resolvePath(parts[0]), tag: parts[1] };
-        }
-        else {
-            return { tag: parts[0], path: resolvePath(parts[1]) };
-        }
+        // Both save and restore use tag:path format
+        return { tag: parts[0], path: resolvePath(parts[1]) };
     });
 }
 function resolvePath(pathInput) {
@@ -25975,12 +25957,8 @@ function convertCacheFormatToEntries(inputs, action) {
         .filter((p) => p);
     const platformSuffix = getPlatformSuffix(inputs.enablePlatformSuffix, inputs.enableCrossOsArchive);
     const fullKey = inputs.key + platformSuffix;
-    if (action === 'save') {
-        return paths.map((p) => `${resolvePath(p)}:${fullKey}`).join(',');
-    }
-    else {
-        return paths.map((p) => `${fullKey}:${resolvePath(p)}`).join(',');
-    }
+    // Both save and restore now use tag:path format (unified)
+    return paths.map((p) => `${fullKey}:${resolvePath(p)}`).join(',');
 }
 
 

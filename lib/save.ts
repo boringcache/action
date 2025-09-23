@@ -32,11 +32,9 @@ async function run(): Promise<void> {
 
       let entriesString: string;
       if (inputs.entries) {
-        // CLI format entries are in restore format (tag:path), convert to save format (path:tag)
-        const restoreEntries = parseEntries(inputs.entries, 'restore');
-        entriesString = restoreEntries.map(e => `${e.path}:${e.tag}`).join(',');
+        // CLI format entries use tag:path format (unified)
+        entriesString = inputs.entries;
       } else {
-
         entriesString = convertCacheFormatToEntries(inputs, 'save');
       }
       
@@ -73,7 +71,8 @@ async function saveCache(workspace: string, entries: string): Promise<void> {
     core.warning('No valid cache paths found, skipping save');
     return;
   }
-  const formattedEntries = validEntries.map(e => `${e.path}:${e.tag}`).join(',');
+  // Use unified tag:path format
+  const formattedEntries = validEntries.map(e => `${e.tag}:${e.path}`).join(',');
   core.info(`💾 Saving cache entries: ${formattedEntries}`);
 
   const result = await exec.exec('boringcache', [
