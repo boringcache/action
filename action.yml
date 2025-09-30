@@ -1,0 +1,61 @@
+name: 'BoringCache'
+description: 'Portable build cache for GitHub Actions. Cache once, reuse anywhere. 3x faster than actions/cache.'
+author: 'BoringCache'
+inputs:
+  workspace:
+    description: 'Workspace identifier in format namespace/workspace (e.g., my-org/my-project). If not provided, uses repository name.'
+    required: false
+  entries:
+    description: 'Cache entries in tag:path format (comma-separated for multiple). Unified format for both save and restore.'
+    required: false
+  path:
+    description: 'A list of files, directories, and wildcard patterns to cache and restore (actions/cache compatible)'
+    required: false
+  key:
+    description: 'An explicit key for restoring and saving the cache (actions/cache compatible)'
+    required: false
+  restore-keys:
+    description: 'An ordered list of prefix-matched keys for restoring stale cache if no cache hit occurred'
+    required: false
+  upload-chunk-size:
+    description: 'The chunk size used to split up large files during upload, in bytes'
+    required: false
+  enableCrossOsArchive:
+    description: 'Allow windows runners to save or restore caches on other platforms'
+    default: 'false'
+    required: false
+  enable-platform-suffix:
+    description: 'Automatically append platform-architecture suffix to cache keys (e.g., -linux-amd64)'
+    default: 'true'
+    required: false
+  force:
+    description: 'Force save even if cache entry already exists on server'
+    default: 'false'
+    required: false
+  fail-on-cache-miss:
+    description: 'Fail the workflow if cache entry is not found'
+    default: 'false'
+    required: false
+  lookup-only:
+    description: 'Check if a cache entry exists without downloading'
+    default: 'false'
+    required: false
+  save-always:
+    description: 'Run the post step to save the cache even if another step fails'
+    default: 'false'
+    required: false
+outputs:
+  cache-hit:
+    description: 'A boolean value indicating an exact match was found for the primary key'
+  cache-primary-key:
+    description: 'The key of the cache entry that was restored'
+  cache-matched-key:
+    description: 'The key of the cache entry that was matched'
+runs:
+  using: 'node20'
+  main: 'dist/restore/index.js'
+  post: 'dist/save/index.js'
+  post-if: "success()"
+branding:
+  icon: 'archive'
+  color: 'blue'
