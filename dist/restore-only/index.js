@@ -25868,10 +25868,25 @@ async function downloadAndInstallCLI() {
             });
             // Add Windows installation paths (CLI installs to .local/bin on Windows)
             const homeDir = os.homedir();
-            core.addPath(`${homeDir}/.local/bin`);
-            core.addPath('/home/runneradmin/.local/bin');
-            core.addPath(`${homeDir}\\.boringcache\\bin`);
-            core.addPath('C:\\Users\\runneradmin\\.boringcache\\bin');
+            const windowsPaths = [
+                `${homeDir}\\.local\\bin`,
+                `${homeDir}\\.boringcache\\bin`,
+                'C:\\Users\\runneradmin\\.local\\bin',
+                'C:\\Users\\runneradmin\\.boringcache\\bin',
+                // Git Bash paths
+                `${homeDir}/.local/bin`,
+                `${homeDir}/.boringcache/bin`,
+                '/home/runneradmin/.local/bin',
+                '/home/runneradmin/.boringcache/bin'
+            ];
+            // Add all paths
+            for (const path of windowsPaths) {
+                core.addPath(path);
+            }
+            // Also set PATH environment variable directly (critical for Windows!)
+            const currentPath = process.env.PATH || '';
+            const updatedPath = windowsPaths.join(';') + ';' + currentPath;
+            core.exportVariable('PATH', updatedPath);
         }
         else {
             await exec.exec('bash', ['-c', 'curl -sSL https://install.boringcache.com/install.sh | sh'], {
@@ -25914,7 +25929,17 @@ async function downloadAndInstallCLI() {
         catch (verifyError) {
             // Try with explicit path
             const homeDir = os.homedir();
-            const possiblePaths = [
+            const isWindows = os.platform() === 'win32';
+            const binaryName = isWindows ? 'boringcache.exe' : 'boringcache';
+            const possiblePaths = isWindows ? [
+                `${homeDir}\\.local\\bin\\${binaryName}`,
+                `${homeDir}\\.boringcache\\bin\\${binaryName}`,
+                `C:\\Users\\runneradmin\\.local\\bin\\${binaryName}`,
+                `C:\\Users\\runneradmin\\.boringcache\\bin\\${binaryName}`,
+                // Git Bash paths
+                `${homeDir}/.local/bin/${binaryName}`,
+                `${homeDir}/.boringcache/bin/${binaryName}`,
+            ] : [
                 `${homeDir}/.boringcache/bin/boringcache`,
                 `${homeDir}/.local/bin/boringcache`,
                 '/usr/local/bin/boringcache',
@@ -25928,8 +25953,8 @@ async function downloadAndInstallCLI() {
                         silent: true
                     });
                     core.info(`✅ BoringCache CLI found at: ${path}`);
-                    // Create symlink to /usr/local/bin if not already there
-                    if (path !== '/usr/local/bin/boringcache') {
+                    // Create symlink on Unix-like systems
+                    if (!isWindows && path !== '/usr/local/bin/boringcache') {
                         await exec.exec('sudo', ['ln', '-sf', path, '/usr/local/bin/boringcache'], {
                             ignoreReturnCode: true,
                             silent: true

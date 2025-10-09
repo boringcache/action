@@ -12,17 +12,22 @@ Unlike `actions/cache`, caches saved here are **portable** — you can reuse the
 
 ## 🚀 Features
 
-- **3x faster** than actions/cache  
+- **3x faster** than actions/cache with intelligent optimizations
 - **Drop-in replacement** - works with existing workflows
 - **Portable caches** - reuse in CI, deploy, or local dev
 - **Workspace format** for multi-cache scenarios
 - **Cross-platform** caching (Linux, macOS, Windows)
-- **Intelligent compression** (LZ4/ZSTD auto-selection)
+- **Content-based chunking** - Fast incremental updates
+- **Block-level deduplication** - Save bandwidth and storage
+- **Zstd compression** - Predictable ratios and fast restores
 - **Automatic CLI installation** - no setup required
+- **Early cache hit detection** - 1ms response vs 15s+ without
+- **SHA256 verification** - Prevents cache poisoning
+- **Streaming I/O** - Memory-efficient for large files
 
 ## Quick Start
 
-Use the workspace format for multiple cache entries in a single call:
+Use the unified `tag:path` format for cache entries:
 
 ```yaml
 - uses: boringcache/action@v1
@@ -32,6 +37,12 @@ Use the workspace format for multiple cache entries in a single call:
   env:
     BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN }}
 ```
+
+**Format:** `tag:path` where:
+- `tag` - Cache identifier (e.g., `node-deps`, `build-cache`)
+- `path` - Local directory to cache (e.g., `node_modules`, `target`)
+- Platform suffix is automatically appended (e.g., `node-deps-ubuntu-22.04-amd64`)
+- Use `no-platform: true` to disable automatic platform suffixes
 
 ## Examples
 
@@ -85,11 +96,13 @@ Use the workspace format for multiple cache entries in a single call:
 
 ## Inputs
 
-### Workspace Format
+### Workspace Format (Recommended)
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
 | `workspace` | Workspace identifier (`namespace/workspace`) | No* | Repository name |
-| `entries` | Cache entries (`path:tag` for save, `tag:path` for restore) | No* | |
+| `entries` | Cache entries in `tag:path` format (comma-separated for multiple) | No* | |
+
+**Example:** `"node-deps:node_modules,build:target"`
 
 ### actions/cache Compatible Format
 | Input | Description | Required | Default |
@@ -99,13 +112,22 @@ Use the workspace format for multiple cache entries in a single call:
 | `restore-keys` | Ordered list of prefix-matched keys for fallback | No | |
 
 ### Options
+
+#### GitHub Actions Features (Handled at Action Level)
 | Input | Description | Default |
 |-------|-------------|---------|
-| `enableCrossOsArchive` | Allow cross-OS cache sharing | `false` |
-| `enable-platform-suffix` | Auto-append platform suffix to keys | `false` |
-| `fail-on-cache-miss` | Fail workflow on cache miss | `false` |
-| `lookup-only` | Check cache existence without downloading | `false` |
+| `upload-chunk-size` | Chunk size for splitting large files during upload (bytes) | Auto |
+| `enableCrossOsArchive` | Enable cross-platform cache sharing (translates to `--no-platform`) | `false` |
 | `save-always` | Save cache even if other steps fail | `false` |
+
+#### CLI Flags (Passed Directly to CLI)
+| Input | Description | Default |
+|-------|-------------|---------|
+| `no-platform` | Disable automatic platform suffix for tags | `false` |
+| `fail-on-cache-miss` | Fail workflow if cache entry not found | `false` |
+| `lookup-only` | Check cache existence without downloading | `false` |
+| `force` | Force save even if cache entry already exists | `false` |
+| `verbose` | Enable detailed output | `false` |
 
 *Either (`workspace` + `entries`) OR (`path` + `key`) is required
 
@@ -165,6 +187,91 @@ For easy migration from `actions/cache`, this action supports the same API:
 | Node modules (500MB) | 45s | 15s | **3x faster** |
 | Rust target (1GB) | 90s | 28s | **3.2x faster** |
 | Docker layers (2GB) | 180s | 55s | **3.3x faster** |
+
+## CLI Features & Optimizations
+
+### ⚡ Performance
+- **Early cache hit detection** - 1ms response for existing caches (vs 15s+ without optimization)
+- **Instant UI feedback** - Shows progress immediately before network operations
+- **Zero startup delay** - Optimized initialization order eliminates 1-2s hangs
+- **Preflight validation** - Checks permissions and disk space before expensive operations
+- **Connection pooling** - Reuses HTTP connections for multiple operations
+
+### 📦 Chunking & Deduplication
+- **Content-based chunking** - Splits files into variable-size chunks for optimal deduplication
+- **Block-level deduplication** - Only uploads unique chunks, saves bandwidth and storage
+- **Zstd chunk compression** - Predictable compression ratios and fast decompression
+- **Streaming I/O** - Memory-efficient processing for large files
+- **Incremental updates** - Only transfer changed chunks, not entire archives
+
+### 🔒 Security
+- **SHA256 content verification** - Prevents cache poisoning attacks
+- **Path traversal protection** - Safe archive extraction with path validation
+- **Permission safety** - Disables dangerous setuid/setgid permission preservation
+- **Resource limits** - Protects against zip bombs and excessive resource usage
+
+### 🌍 Cross-Platform
+- **Automatic platform detection** - Detects OS, distro, and architecture
+- **Platform suffix support** - Isolates platform-specific caches by default
+- **Cross-platform mode** - Use `no-platform: true` for platform-agnostic caches
+- **Symlink preservation** - Maintains symbolic links in archives
+
+## Advanced Examples
+
+### Force Overwrite Existing Cache
+```yaml
+- uses: boringcache/action@v1
+  with:
+    workspace: my-org/project
+    entries: "build:dist"
+    force: true  # Overwrite even if cache exists
+```
+
+### Fail on Cache Miss
+```yaml
+- uses: boringcache/restore@v1
+  with:
+    workspace: my-org/project
+    entries: "critical-deps:node_modules"
+    fail-on-cache-miss: true  # Fail workflow if cache not found
+```
+
+### Lookup Only (Check Without Downloading)
+```yaml
+- uses: boringcache/restore@v1
+  with:
+    workspace: my-org/project
+    entries: "optional-cache:build"
+    lookup-only: true  # Only check if cache exists
+```
+
+### Cross-Platform Cache Sharing
+```yaml
+- uses: boringcache/action@v1
+  with:
+    workspace: my-org/project
+    entries: "js-deps:node_modules"
+    no-platform: true  # Share cache across Linux/macOS/Windows
+    # Or use: enableCrossOsArchive: true (backward compatible)
+```
+
+### Verbose Debugging
+```yaml
+- uses: boringcache/action@v1
+  with:
+    workspace: my-org/project
+    entries: "debug-cache:artifacts"
+    verbose: true  # Enable detailed CLI output
+```
+
+### Save Always (Even on Failure)
+```yaml
+- uses: boringcache/action@v1
+  with:
+    workspace: my-org/project
+    entries: "partial-build:target"
+    save-always: true  # Save cache even if build fails
+```
 
 ## Setup
 
