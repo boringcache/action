@@ -1,0 +1,723 @@
+name: Simple Cache Benchmark
+
+on:
+  workflow_dispatch:
+
+env:
+  BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN }}
+
+jobs:
+  benchmark-actions-cache:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        run: [1, 2, 3]
+    steps:
+      - name: Checkout Mastodon
+        uses: actions/checkout@v4
+        with:
+          repository: mastodon/mastodon
+          path: mastodon
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libicu-dev libidn11-dev libvips42
+          
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2.0'
+          
+      - name: Cache gems (actions/cache)
+        uses: actions/cache@v4
+        with:
+          path: mastodon/vendor/bundle
+          key: gems-actions-${{ runner.os }}-run${{ matrix.run }}
+          restore-keys: |
+            gems-actions-${{ runner.os }}-
+            
+      - name: Bundle install
+        run: |
+          cd mastodon
+          bundle config path vendor/bundle
+          
+          START_TIME=$(date +%s%N)
+          bundle install --jobs 4 --retry 3
+          END_TIME=$(date +%s%N)
+          
+          DURATION=$(( (END_TIME - START_TIME) / 1000000 ))
+          echo "⏱️ actions/cache - Run ${{ matrix.run }}: ${DURATION}ms"
+          
+          # Save timing data for summary
+          mkdir -p benchmark-results
+          echo "${DURATION}" > benchmark-results/actions-cache-run${{ matrix.run }}.txt
+          echo "📁 Created benchmark-results/actions-cache-run${{ matrix.run }}.txt with ${DURATION}ms"
+          ls -la benchmark-results/
+          
+      - name: Upload actions/cache results
+        uses: actions/upload-artifact@v4
+        with:
+          name: actions-cache-results-${{ matrix.run }}
+          path: benchmark-results/
+          if-no-files-found: warn
+
+  benchmark-boringcache:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        run: [1, 2, 3]
+    steps:
+      - name: Checkout boringcache actions
+        uses: actions/checkout@v4
+        
+      - name: Checkout Mastodon
+        uses: actions/checkout@v4
+        with:
+          repository: mastodon/mastodon
+          path: mastodon
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libicu-dev libidn11-dev libvips42
+          
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2.0'
+          
+      - name: Cache CLI and gems (boringcache batched)
+        uses: ./
+        id: cache-batch
+        with:
+          workspace: boringcache/benchmark
+          entries: "boringcache-cli-${{ runner.os }}:/usr/local/bin/boringcache,gems-boring-${{ runner.os }}-run${{ matrix.run }}:mastodon/vendor/bundle"
+          
+      - name: Install BoringCache CLI
+        if: steps.cache-batch.outputs.cache-hit != 'true'
+        run: |
+          curl -sSL https://install.boringcache.com/install.sh | sh
+          
+      - name: Authenticate BoringCache CLI
+        run: |
+          boringcache auth --token ${{ env.BORINGCACHE_API_TOKEN }}
+          
+      - name: Bundle install
+        run: |
+          cd mastodon
+          bundle config path vendor/bundle
+          
+          START_TIME=$(date +%s%N)
+          bundle install --jobs 4 --retry 3
+          END_TIME=$(date +%s%N)
+          
+          DURATION=$(( (END_TIME - START_TIME) / 1000000 ))
+          echo "⏱️ boringcache - Run ${{ matrix.run }}: ${DURATION}ms"
+          
+          # Save timing data for summary
+          mkdir -p benchmark-results
+          echo "${DURATION}" > benchmark-results/boringcache-run${{ matrix.run }}.txt
+          echo "📁 Created benchmark-results/boringcache-run${{ matrix.run }}.txt with ${DURATION}ms"
+          ls -la benchmark-results/
+          
+      - name: Upload boringcache results
+        uses: actions/upload-artifact@v4
+        with:
+          name: boringcache-results-${{ matrix.run }}
+          path: benchmark-results/
+          if-no-files-found: warn
+
+  benchmark-docker-actions:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        run: [1, 2, 3]
+    steps:
+      - name: Create large Ruby + Node.js app
+        run: |
+          mkdir -p docker-app
+          cd docker-app
+          
+          # Create package.json with lots of dependencies (~150MB)
+          cat > package.json << 'EOF'
+          {
+            "name": "docker-benchmark-app",
+            "version": "1.0.0",
+            "description": "Large test app for Docker cache benchmarking",
+            "main": "index.js",
+            "dependencies": {
+              "express": "^4.18.0",
+              "lodash": "^4.17.21",
+              "moment": "^2.29.4",
+              "axios": "^1.6.0",
+              "uuid": "^9.0.0",
+              "cors": "^2.8.5",
+              "helmet": "^7.1.0",
+              "compression": "^1.7.4",
+              "morgan": "^1.10.0",
+              "dotenv": "^16.3.0",
+              "react": "^18.2.0",
+              "react-dom": "^18.2.0",
+              "next": "^14.0.0",
+              "webpack": "^5.88.0",
+              "typescript": "^5.2.0",
+              "@types/node": "^20.5.0",
+              "@types/react": "^18.2.0",
+              "eslint": "^8.47.0",
+              "prettier": "^3.0.0",
+              "jest": "^29.6.0",
+              "babel-core": "^6.26.3",
+              "babel-loader": "^9.1.3",
+              "css-loader": "^6.8.1",
+              "style-loader": "^3.3.3",
+              "sass": "^1.66.0",
+              "node-sass": "^9.0.0",
+              "tailwindcss": "^3.3.0",
+              "autoprefixer": "^10.4.15",
+              "postcss": "^8.4.28",
+              "prisma": "^5.2.0",
+              "@prisma/client": "^5.2.0",
+              "graphql": "^16.8.0",
+              "apollo-server-express": "^3.12.0",
+              "mongoose": "^7.5.0",
+              "sequelize": "^6.32.1",
+              "redis": "^4.6.8",
+              "socket.io": "^4.7.2",
+              "bcrypt": "^5.1.1",
+              "jsonwebtoken": "^9.0.2",
+              "passport": "^0.6.0",
+              "multer": "^1.4.5-lts.1",
+              "sharp": "^0.32.5",
+              "puppeteer": "^21.1.1",
+              "playwright": "^1.37.1",
+              "cheerio": "^1.0.0-rc.12",
+              "nodemailer": "^6.9.4",
+              "stripe": "^13.5.0",
+              "aws-sdk": "^2.1440.0"
+            }
+          }
+          EOF
+          
+          # Create Gemfile with substantial Ruby dependencies (~200MB)
+          cat > Gemfile << 'EOF'
+          source 'https://rubygems.org'
+          ruby '3.4.6'
+          
+          gem 'rails'
+          gem 'pg'
+          gem 'redis'
+          gem 'bootsnap', require: false
+          gem 'sassc-rails'
+          gem 'turbo-rails'
+          gem 'stimulus-rails'
+          gem 'jbuilder'
+          gem 'image_processing'
+          gem 'devise'
+          gem 'omniauth'
+          gem 'omniauth-rails_csrf_protection'
+          gem 'pundit'
+          gem 'kaminari'
+          gem 'ransack'
+          gem 'friendly_id'
+          gem 'sidekiq'
+          gem 'whenever'
+          gem 'paperclip'
+          gem 'aws-sdk-s3'
+          gem 'elasticsearch-model'
+          gem 'elasticsearch-rails'
+          gem 'nokogiri'
+          gem 'httparty'
+          gem 'faraday'
+          gem 'grape'
+          gem 'grape-swagger'
+          gem 'rack-cors'
+          gem 'puma'
+          gem 'unicorn'
+          gem 'thin'
+          gem 'capistrano'
+          gem 'capistrano-rails'
+          gem 'newrelic_rpm'
+          gem 'rollbar'
+          gem 'sentry-ruby'
+          gem 'rspec-rails'
+          gem 'factory_bot_rails'
+          gem 'faker'
+          gem 'rubocop'
+          gem 'rubocop-rails'
+          gem 'brakeman'
+          gem 'bundler-audit'
+          gem 'simplecov'
+          gem 'webmock'
+          gem 'vcr'
+          gem 'timecop'
+          gem 'shoulda-matchers'
+          gem 'database_cleaner'
+          gem 'selenium-webdriver'
+          gem 'capybara'
+          gem 'webdrivers'
+          EOF
+          
+          # Create app.js
+          cat > app.js << 'EOF'
+          const express = require('express');
+          const cors = require('cors');
+          const helmet = require('helmet');
+          const compression = require('compression');
+          const morgan = require('morgan');
+          require('dotenv').config();
+          
+          const app = express();
+          const port = process.env.PORT || 3000;
+          
+          app.use(helmet());
+          app.use(cors());
+          app.use(compression());
+          app.use(morgan('combined'));
+          app.use(express.json());
+          
+          app.get('/', (req, res) => {
+            res.json({ 
+              message: 'Large Ruby + Node.js Docker cache benchmark app running!',
+              gems_installed: 'Rails, Sidekiq, Elasticsearch, and 40+ more gems',
+              npm_packages: 'React, Next.js, Webpack, Puppeteer, and 35+ more packages'
+            });
+          });
+          
+          app.listen(port, () => {
+            console.log(`Server running on port ${port}`);
+          });
+          EOF
+          
+          # Create Dockerfile with Ruby + Node.js
+          cat > Dockerfile << 'EOF'
+          FROM ruby:3.4
+          
+          # Install Node.js 18 and system dependencies
+          RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+              apt-get update && apt-get install -y \
+              build-essential \
+              libpq-dev \
+              libvips42 \
+              nodejs \
+              && rm -rf /var/lib/apt/lists/*
+          
+          WORKDIR /app
+          
+          # Install Ruby gems first (cached layer ~200MB)
+          COPY Gemfile* ./
+          RUN bundle config --global silence_root_warning 1 && \
+              bundle install --jobs 4 --retry 3 && \
+              bundle clean --force
+          
+          # Install Node.js packages (cached layer ~150MB)  
+          COPY package.json ./
+          RUN npm install --omit=dev --legacy-peer-deps && npm cache clean --force
+          
+          # Copy application code
+          COPY . .
+          
+          EXPOSE 3000
+          CMD ["node", "app.js"]
+          EOF
+          
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Cache Docker layers (actions/cache)
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: docker-actions-${{ runner.os }}-buildx-run${{ matrix.run }}
+          restore-keys: |
+            docker-actions-${{ runner.os }}-buildx-
+            
+      - name: Build Docker image
+        run: |
+          cd docker-app
+          
+          START_TIME=$(date +%s%N)
+          docker buildx build \
+            --cache-from=type=local,src=/tmp/.buildx-cache \
+            --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
+            --load \
+            --tag getting-started:latest \
+            .
+          END_TIME=$(date +%s%N)
+          
+          DURATION=$(( (END_TIME - START_TIME) / 1000000 ))
+          echo "⏱️ Docker actions/cache - Run ${{ matrix.run }}: ${DURATION}ms"
+          
+          # Move cache to avoid ever-growing cache
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+          
+          # Save timing data for summary
+          cd $GITHUB_WORKSPACE
+          mkdir -p benchmark-results
+          echo "${DURATION}" > benchmark-results/docker-actions-run${{ matrix.run }}.txt
+          echo "📁 Created benchmark-results/docker-actions-run${{ matrix.run }}.txt with ${DURATION}ms"
+          ls -la benchmark-results/
+          pwd
+          
+      - name: Upload Docker actions/cache results
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-actions-results-${{ matrix.run }}
+          path: benchmark-results/
+          if-no-files-found: warn
+
+  benchmark-docker-boringcache:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        run: [1, 2, 3]
+    steps:
+      - name: Checkout boringcache actions
+        uses: actions/checkout@v4
+        
+      - name: Create large Ruby + Node.js app
+        run: |
+          mkdir -p docker-app
+          cd docker-app
+          
+          # Create package.json with lots of dependencies (~150MB)
+          cat > package.json << 'EOF'
+          {
+            "name": "docker-benchmark-app",
+            "version": "1.0.0",
+            "description": "Large test app for Docker cache benchmarking",
+            "main": "index.js",
+            "dependencies": {
+              "express": "^4.18.0",
+              "lodash": "^4.17.21",
+              "moment": "^2.29.4",
+              "axios": "^1.6.0",
+              "uuid": "^9.0.0",
+              "cors": "^2.8.5",
+              "helmet": "^7.1.0",
+              "compression": "^1.7.4",
+              "morgan": "^1.10.0",
+              "dotenv": "^16.3.0",
+              "react": "^18.2.0",
+              "react-dom": "^18.2.0",
+              "next": "^14.0.0",
+              "webpack": "^5.88.0",
+              "typescript": "^5.2.0",
+              "@types/node": "^20.5.0",
+              "@types/react": "^18.2.0",
+              "eslint": "^8.47.0",
+              "prettier": "^3.0.0",
+              "jest": "^29.6.0",
+              "babel-core": "^6.26.3",
+              "babel-loader": "^9.1.3",
+              "css-loader": "^6.8.1",
+              "style-loader": "^3.3.3",
+              "sass": "^1.66.0",
+              "node-sass": "^9.0.0",
+              "tailwindcss": "^3.3.0",
+              "autoprefixer": "^10.4.15",
+              "postcss": "^8.4.28",
+              "prisma": "^5.2.0",
+              "@prisma/client": "^5.2.0",
+              "graphql": "^16.8.0",
+              "apollo-server-express": "^3.12.0",
+              "mongoose": "^7.5.0",
+              "sequelize": "^6.32.1",
+              "redis": "^4.6.8",
+              "socket.io": "^4.7.2",
+              "bcrypt": "^5.1.1",
+              "jsonwebtoken": "^9.0.2",
+              "passport": "^0.6.0",
+              "multer": "^1.4.5-lts.1",
+              "sharp": "^0.32.5",
+              "puppeteer": "^21.1.1",
+              "playwright": "^1.37.1",
+              "cheerio": "^1.0.0-rc.12",
+              "nodemailer": "^6.9.4",
+              "stripe": "^13.5.0",
+              "aws-sdk": "^2.1440.0"
+            }
+          }
+          EOF
+          
+          # Create Gemfile with substantial Ruby dependencies (~200MB)
+          cat > Gemfile << 'EOF'
+          source 'https://rubygems.org'
+          ruby '3.4.6'
+          
+          gem 'rails'
+          gem 'pg'
+          gem 'redis'
+          gem 'bootsnap', require: false
+          gem 'sassc-rails'
+          gem 'turbo-rails'
+          gem 'stimulus-rails'
+          gem 'jbuilder'
+          gem 'image_processing'
+          gem 'devise'
+          gem 'omniauth'
+          gem 'omniauth-rails_csrf_protection'
+          gem 'pundit'
+          gem 'kaminari'
+          gem 'ransack'
+          gem 'friendly_id'
+          gem 'sidekiq'
+          gem 'whenever'
+          gem 'paperclip'
+          gem 'aws-sdk-s3'
+          gem 'elasticsearch-model'
+          gem 'elasticsearch-rails'
+          gem 'nokogiri'
+          gem 'httparty'
+          gem 'faraday'
+          gem 'grape'
+          gem 'grape-swagger'
+          gem 'rack-cors'
+          gem 'puma'
+          gem 'unicorn'
+          gem 'thin'
+          gem 'capistrano'
+          gem 'capistrano-rails'
+          gem 'newrelic_rpm'
+          gem 'rollbar'
+          gem 'sentry-ruby'
+          gem 'rspec-rails'
+          gem 'factory_bot_rails'
+          gem 'faker'
+          gem 'rubocop'
+          gem 'rubocop-rails'
+          gem 'brakeman'
+          gem 'bundler-audit'
+          gem 'simplecov'
+          gem 'webmock'
+          gem 'vcr'
+          gem 'timecop'
+          gem 'shoulda-matchers'
+          gem 'database_cleaner'
+          gem 'selenium-webdriver'
+          gem 'capybara'
+          gem 'webdrivers'
+          EOF
+          
+          # Create app.js
+          cat > app.js << 'EOF'
+          const express = require('express');
+          const cors = require('cors');
+          const helmet = require('helmet');
+          const compression = require('compression');
+          const morgan = require('morgan');
+          require('dotenv').config();
+          
+          const app = express();
+          const port = process.env.PORT || 3000;
+          
+          app.use(helmet());
+          app.use(cors());
+          app.use(compression());
+          app.use(morgan('combined'));
+          app.use(express.json());
+          
+          app.get('/', (req, res) => {
+            res.json({ 
+              message: 'Large Ruby + Node.js Docker cache benchmark app running!',
+              gems_installed: 'Rails, Sidekiq, Elasticsearch, and 40+ more gems',
+              npm_packages: 'React, Next.js, Webpack, Puppeteer, and 35+ more packages'
+            });
+          });
+          
+          app.listen(port, () => {
+            console.log(`Server running on port ${port}`);
+          });
+          EOF
+          
+          # Create Dockerfile with Ruby + Node.js
+          cat > Dockerfile << 'EOF'
+          FROM ruby:3.4
+          
+          # Install Node.js 18 and system dependencies
+          RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+              apt-get update && apt-get install -y \
+              build-essential \
+              libpq-dev \
+              libvips42 \
+              nodejs \
+              && rm -rf /var/lib/apt/lists/*
+          
+          WORKDIR /app
+          
+          # Install Ruby gems first (cached layer ~200MB)
+          COPY Gemfile* ./
+          RUN bundle config --global silence_root_warning 1 && \
+              bundle install --jobs 4 --retry 3 && \
+              bundle clean --force
+          
+          # Install Node.js packages (cached layer ~150MB)  
+          COPY package.json ./
+          RUN npm install --omit=dev --legacy-peer-deps && npm cache clean --force
+          
+          # Copy application code
+          COPY . .
+          
+          EXPOSE 3000
+          CMD ["node", "app.js"]
+          EOF
+          
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Cache CLI and Docker layers (boringcache batched)
+        uses: ./
+        id: cache-batch-docker
+        with:
+          workspace: boringcache/benchmark
+          entries: "boringcache-cli-${{ runner.os }}:/usr/local/bin/boringcache,docker-boring-${{ runner.os }}-buildx-run${{ matrix.run }}:/tmp/.buildx-cache"
+          
+      - name: Install BoringCache CLI
+        if: steps.cache-batch-docker.outputs.cache-hit != 'true'
+        run: |
+          curl -sSL https://install.boringcache.com/install.sh | sh
+          
+      - name: Authenticate BoringCache CLI
+        run: |
+          boringcache auth --token ${{ env.BORINGCACHE_API_TOKEN }}
+          
+      - name: Build Docker image
+        run: |
+          cd docker-app
+          
+          START_TIME=$(date +%s%N)
+          docker buildx build \
+            --cache-from=type=local,src=/tmp/.buildx-cache \
+            --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
+            --load \
+            --tag getting-started:latest \
+            .
+          END_TIME=$(date +%s%N)
+          
+          DURATION=$(( (END_TIME - START_TIME) / 1000000 ))
+          echo "⏱️ Docker boringcache - Run ${{ matrix.run }}: ${DURATION}ms"
+          
+          # Move cache to avoid ever-growing cache
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+          
+          # Save timing data for summary
+          cd $GITHUB_WORKSPACE
+          mkdir -p benchmark-results
+          echo "${DURATION}" > benchmark-results/docker-boring-run${{ matrix.run }}.txt
+          echo "📁 Created benchmark-results/docker-boring-run${{ matrix.run }}.txt with ${DURATION}ms"
+          ls -la benchmark-results/
+          pwd
+          
+      - name: Upload Docker boringcache results
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-boringcache-results-${{ matrix.run }}
+          path: benchmark-results/
+          if-no-files-found: warn
+
+  benchmark-summary:
+    runs-on: ubuntu-latest
+    needs: [benchmark-actions-cache, benchmark-boringcache, benchmark-docker-actions, benchmark-docker-boringcache]
+    if: always()
+    steps:
+      - name: Download all results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: "*-results-*"
+          merge-multiple: true
+          
+      - name: Generate benchmark summary
+        run: |
+          echo "# 🏁 Cache Performance Benchmark Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📦 Bundle Install Times (Mastodon Ruby Gems ~500MB)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Run | actions/cache | boringcache | Improvement |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|---------------|-------------|-------------|" >> $GITHUB_STEP_SUMMARY
+          
+          # Calculate results for each run
+          for run in 1 2 3; do
+            if [[ -f "actions-cache-run${run}.txt" && -f "boringcache-run${run}.txt" ]]; then
+              actions_time=$(cat "actions-cache-run${run}.txt")
+              boring_time=$(cat "boringcache-run${run}.txt")
+              
+              # Calculate improvement (actions_time / boring_time)
+              if [[ $boring_time -gt 0 ]]; then
+                improvement=$(echo "scale=1; $actions_time / $boring_time" | bc -l)
+                echo "| $run | ${actions_time}ms | ${boring_time}ms | ${improvement}x faster |" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "| $run | ${actions_time}ms | ${boring_time}ms | N/A |" >> $GITHUB_STEP_SUMMARY
+              fi
+            else
+              echo "| $run | Missing | Missing | N/A |" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Calculate averages
+          if [[ -f "actions-cache-run1.txt" && -f "actions-cache-run2.txt" && -f "actions-cache-run3.txt" && 
+                -f "boringcache-run1.txt" && -f "boringcache-run2.txt" && -f "boringcache-run3.txt" ]]; then
+            
+            actions_avg=$(( ($(cat actions-cache-run1.txt) + $(cat actions-cache-run2.txt) + $(cat actions-cache-run3.txt)) / 3 ))
+            boring_avg=$(( ($(cat boringcache-run1.txt) + $(cat boringcache-run2.txt) + $(cat boringcache-run3.txt)) / 3 ))
+            
+            if [[ $boring_avg -gt 0 ]]; then
+              avg_improvement=$(echo "scale=1; $actions_avg / $boring_avg" | bc -l)
+              echo "## 🎯 Bundle Install Average Performance" >> $GITHUB_STEP_SUMMARY
+              echo "- **actions/cache**: ${actions_avg}ms" >> $GITHUB_STEP_SUMMARY  
+              echo "- **boringcache**: ${boring_avg}ms" >> $GITHUB_STEP_SUMMARY
+              echo "- **Improvement**: ${avg_improvement}x faster with boringcache" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🐳 Docker Build Times (Ruby + Node.js Full-Stack App ~500MB)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Run | actions/cache | boringcache | Improvement |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|---------------|-------------|-------------|" >> $GITHUB_STEP_SUMMARY
+          
+          # Calculate Docker results for each run
+          for run in 1 2 3; do
+            if [[ -f "docker-actions-run${run}.txt" && -f "docker-boring-run${run}.txt" ]]; then
+              docker_actions_time=$(cat "docker-actions-run${run}.txt")
+              docker_boring_time=$(cat "docker-boring-run${run}.txt")
+              
+              # Calculate improvement (actions_time / boring_time)
+              if [[ $docker_boring_time -gt 0 ]]; then
+                docker_improvement=$(echo "scale=1; $docker_actions_time / $docker_boring_time" | bc -l)
+                echo "| $run | ${docker_actions_time}ms | ${docker_boring_time}ms | ${docker_improvement}x faster |" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "| $run | ${docker_actions_time}ms | ${docker_boring_time}ms | N/A |" >> $GITHUB_STEP_SUMMARY
+              fi
+            else
+              echo "| $run | Missing | Missing | N/A |" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Calculate Docker averages
+          if [[ -f "docker-actions-run1.txt" && -f "docker-actions-run2.txt" && -f "docker-actions-run3.txt" && 
+                -f "docker-boring-run1.txt" && -f "docker-boring-run2.txt" && -f "docker-boring-run3.txt" ]]; then
+            
+            docker_actions_avg=$(( ($(cat docker-actions-run1.txt) + $(cat docker-actions-run2.txt) + $(cat docker-actions-run3.txt)) / 3 ))
+            docker_boring_avg=$(( ($(cat docker-boring-run1.txt) + $(cat docker-boring-run2.txt) + $(cat docker-boring-run3.txt)) / 3 ))
+            
+            if [[ $docker_boring_avg -gt 0 ]]; then
+              docker_avg_improvement=$(echo "scale=1; $docker_actions_avg / $docker_boring_avg" | bc -l)
+              echo "## 🐳 Docker Build Average Performance" >> $GITHUB_STEP_SUMMARY
+              echo "- **actions/cache**: ${docker_actions_avg}ms" >> $GITHUB_STEP_SUMMARY  
+              echo "- **boringcache**: ${docker_boring_avg}ms" >> $GITHUB_STEP_SUMMARY
+              echo "- **Improvement**: ${docker_avg_improvement}x faster with boringcache" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "💡 **Notes**:" >> $GITHUB_STEP_SUMMARY
+          echo "- Bundle times include Ruby gem installation for Mastodon (~500MB)" >> $GITHUB_STEP_SUMMARY
+          echo "- Docker times include building Ruby + Node.js app with Rails, React, and 80+ dependencies (~500MB)" >> $GITHUB_STEP_SUMMARY
+          echo "- All tests run 3 times to measure consistency" >> $GITHUB_STEP_SUMMARY
