@@ -202,7 +202,6 @@ jobs:
           # Create Gemfile with substantial Ruby dependencies (~200MB)
           cat > Gemfile << 'EOF'
           source 'https://rubygems.org'
-          ruby '3.4.6'
           
           gem 'rails'
           gem 'pg'
@@ -331,6 +330,9 @@ jobs:
           key: docker-actions-${{ runner.os }}-buildx-run${{ matrix.run }}
           restore-keys: |
             docker-actions-${{ runner.os }}-buildx-
+      
+      - name: Ensure cache directory exists
+        run: mkdir -p /tmp/.buildx-cache
             
       - name: Build Docker image
         run: |
@@ -444,7 +446,6 @@ jobs:
           # Create Gemfile with substantial Ruby dependencies (~200MB)
           cat > Gemfile << 'EOF'
           source 'https://rubygems.org'
-          ruby '3.4.6'
           
           gem 'rails'
           gem 'pg'
@@ -581,6 +582,9 @@ jobs:
       - name: Authenticate BoringCache CLI
         run: |
           boringcache auth --token ${{ env.BORINGCACHE_API_TOKEN }}
+      
+      - name: Ensure cache directory exists
+        run: mkdir -p /tmp/.buildx-cache
           
       - name: Build Docker image
         run: |
