@@ -2,6 +2,20 @@ source "https://rubygems.org"
 
 gem "rails"
 gem "dagger_ruby"
+gem "redis"
+gem "mini_racer"
+gem "turbo-rails"
+gem "stimulus-rails"
+gem "jbuilder"
+gem "puma"
+gem "sidekiq"
+gem "elasticsearch"
+gem "aws-sdk-s3"
+gem "devise"
+gem "pundit"
+gem "kaminari"
+gem "ransack"
+gem "action_policy"
 gem "delayed_job_active_record"
 gem "carrierwave"
 gem "friendly_id"
@@ -80,5 +94,3 @@ group :development do
   # Use console on exceptions pages [https://github.com/rails/web-console]
   gem "web-console"
 end
-
-gem "aws-sdk-ec2", "~> 1.563"
