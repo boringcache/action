@@ -41,6 +41,7 @@ jobs:
           START_TIME=$(date +%s%N)
           bundle install --jobs 4 --retry 3
           END_TIME=$(date +%s%N)
+          bundle clean --force
           DURATION=$(( (END_TIME - START_TIME) / 1000000 ))
           echo "actions/cache bundle - Run ${{ matrix.run }}: ${DURATION}ms"
           mkdir -p "$GITHUB_WORKSPACE/benchmark-results"
@@ -95,6 +96,7 @@ jobs:
           START_TIME=$(date +%s%N)
           bundle install --jobs 4 --retry 3
           END_TIME=$(date +%s%N)
+          bundle clean --force
           DURATION=$(( (END_TIME - START_TIME) / 1000000 ))
           echo "boringcache bundle - Run ${{ matrix.run }}: ${DURATION}ms"
           mkdir -p "$GITHUB_WORKSPACE/benchmark-results"
