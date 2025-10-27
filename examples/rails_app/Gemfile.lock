@@ -256,7 +256,7 @@ GEM
     json (2.15.2)
     jwt (3.1.2)
       base64
-    kamal (2.8.1)
+    kamal (2.8.2)
       activesupport (>= 7.0)
       base64 (~> 0.2)
       bcrypt_pbkdf (~> 1.0)
@@ -372,6 +372,7 @@ GEM
       omniauth (~> 2.0)
     orm_adapter (0.5.0)
     ostruct (0.6.3)
+    pagy (9.4.0)
     paperclip (6.1.0)
       activemodel (>= 4.2.0)
       activesupport (>= 4.2.0)
@@ -620,6 +621,7 @@ GEM
       base64
       websocket-extensions (>= 0.1.0)
     websocket-extensions (0.1.5)
+    will_paginate (4.0.1)
     xpath (3.2.0)
       nokogiri (~> 1.8)
     zeitwerk (2.7.3)
@@ -672,6 +674,7 @@ DEPENDENCIES
   nokogiri
   omniauth
   omniauth-google-oauth2
+  pagy
   paperclip
   propshaft
   puma
@@ -704,6 +707,7 @@ DEPENDENCIES
   web-console
   webdrivers
   webmock
+  will_paginate
 
 BUNDLED WITH
    2.7.2
