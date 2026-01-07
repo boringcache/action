@@ -26066,8 +26066,7 @@ async function downloadAndInstallCLI() {
     }
 }
 async function getCacheConfig(key, enableCrossOsArchive, noPlatform = false) {
-    let workspace = process.env.BORINGCACHE_WORKSPACE ||
-        process.env.BORINGCACHE_DEFAULT_WORKSPACE ||
+    let workspace = process.env.BORINGCACHE_DEFAULT_WORKSPACE ||
         process.env.GITHUB_REPOSITORY ||
         'default/default';
     if (!workspace.includes('/')) {
