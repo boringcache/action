@@ -308,6 +308,9 @@ GEM
       oauth2 (>= 1.4, < 3)
       omniauth (~> 2.0)
     ostruct (0.6.3)
+    pagy (43.2.2)
+      json
+      yaml
     paperclip (6.1.0)
       activemodel (>= 4.2.0)
       activesupport (>= 4.2.0)
@@ -533,6 +536,7 @@ GEM
     websocket-extensions (0.1.5)
     xpath (3.2.0)
       nokogiri (~> 1.8)
+    yaml (0.4.0)
     zeitwerk (2.7.3)
 
 PLATFORMS
@@ -575,6 +579,7 @@ DEPENDENCIES
   nokogiri
   omniauth
   omniauth-google-oauth2
+  pagy
   paperclip
   propshaft
   rack-mini-profiler
