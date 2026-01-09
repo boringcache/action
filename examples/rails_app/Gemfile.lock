@@ -299,6 +299,12 @@ GEM
       logger
       rack (>= 2.2.3)
       rack-protection
+    omniauth-facebook (10.0.0)
+      bigdecimal
+      omniauth-oauth2 (>= 1.2, < 3)
+    omniauth-github (2.0.1)
+      omniauth (~> 2.0)
+      omniauth-oauth2 (~> 1.8)
     omniauth-google-oauth2 (1.2.1)
       jwt (>= 2.9.2)
       oauth2 (~> 2.0)
@@ -578,6 +584,8 @@ DEPENDENCIES
   newrelic_rpm
   nokogiri
   omniauth
+  omniauth-facebook
+  omniauth-github
   omniauth-google-oauth2
   pagy
   paperclip
