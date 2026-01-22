@@ -1,0 +1,71 @@
+name: 'BoringCache'
+description: 'Cache once. Reuse everywhere. Drop-in replacement for actions/cache with portable, verified archives.'
+author: 'BoringCache'
+inputs:
+  cli-version:
+    description: 'Version of BoringCache CLI to install (e.g., v1.0.0). Set to "skip" to disable automatic CLI setup.'
+    default: 'v1.0.0'
+    required: false
+  workspace:
+    description: 'Workspace identifier in format namespace/workspace (e.g., my-org/my-project). If not provided, uses repository name.'
+    required: false
+  entries:
+    description: 'Cache entries in tag:path format (comma-separated for multiple). Unified format for both save and restore.'
+    required: false
+  path:
+    description: 'A list of files, directories, and wildcard patterns to cache and restore (actions/cache compatible)'
+    required: false
+  key:
+    description: 'An explicit key for restoring and saving the cache (actions/cache compatible)'
+    required: false
+  restore-keys:
+    description: 'An ordered list of prefix-matched keys for restoring stale cache if no cache hit occurred'
+    required: false
+  # GitHub Actions specific features (handled at action level)
+  enableCrossOsArchive:
+    description: 'Enable cross-platform cache sharing by disabling automatic platform suffixes (translates to CLI --no-platform flag)'
+    default: 'false'
+    required: false
+  save-always:
+    description: 'Run the post step to save the cache even if another step fails (GitHub Actions feature)'
+    default: 'false'
+    required: false
+  # CLI flags (passed directly to boringcache CLI)
+  no-platform:
+    description: 'Disable automatic platform suffix for tags (CLI --no-platform flag)'
+    default: 'false'
+    required: false
+  fail-on-cache-miss:
+    description: 'Fail the workflow if cache entry is not found (CLI --fail-on-cache-miss flag)'
+    default: 'false'
+    required: false
+  lookup-only:
+    description: 'Check if a cache entry exists without downloading (CLI --lookup-only flag)'
+    default: 'false'
+    required: false
+  force:
+    description: 'Force save even if cache entry already exists on server (CLI --force flag)'
+    default: 'false'
+    required: false
+  verbose:
+    description: 'Enable detailed output (CLI --verbose flag)'
+    default: 'false'
+    required: false
+  exclude:
+    description: 'Glob patterns to exclude from cache (comma-separated, e.g., "*.out,*.log"). Excludes files that produce non-deterministic content.'
+    required: false
+outputs:
+  cache-hit:
+    description: 'A boolean value indicating an exact match was found for the primary key'
+  cache-primary-key:
+    description: 'The key of the cache entry that was restored'
+  cache-matched-key:
+    description: 'The key of the cache entry that was matched'
+runs:
+  using: 'node24'
+  main: 'dist/restore/index.js'
+  post: 'dist/save/index.js'
+  post-if: "success() || inputs.save-always == 'true'"
+branding:
+  icon: 'archive'
+  color: 'blue'
