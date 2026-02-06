@@ -1,5 +1,4 @@
 import * as core from '@actions/core';
-import * as fs from 'fs';
 import { ensureBoringCache, validateInputs, parseEntries, getWorkspace, convertCacheFormatToEntries, execBoringCache } from './utils';
 
 async function run(): Promise<void> {
@@ -29,18 +28,16 @@ async function run(): Promise<void> {
 
       validateInputs(inputs);
       await ensureBoringCache({ version: cliVersion });
-      
+
       const workspace = getWorkspace(inputs);
-      
 
       let entriesString: string;
       if (inputs.entries) {
-        // CLI format entries use tag:path format (unified)
         entriesString = inputs.entries;
       } else {
         entriesString = convertCacheFormatToEntries(inputs, 'save');
       }
-      
+
       await saveCache(workspace, entriesString, inputs.force, inputs.noPlatform, inputs.verbose, inputs.enableCrossOsArchive, inputs.exclude);
     }
 
@@ -50,60 +47,21 @@ async function run(): Promise<void> {
 }
 
 async function saveCache(workspace: string, entries: string, force: boolean = false, noPlatform: boolean = false, verbose: boolean = false, enableCrossOsArchive: boolean = false, exclude: string = ''): Promise<void> {
-  const entryList = parseEntries(entries, 'save');
-  const validEntries: Array<{savePath: string, tag: string}> = [];
-  const missingPaths: string[] = [];
-  
-
-  for (const entry of entryList) {
-    try {
-      await fs.promises.access(entry.savePath);
-      validEntries.push({ savePath: entry.savePath, tag: entry.tag });
-      core.debug(`✅ Path exists for save: ${entry.savePath}`);
-    } catch {
-      missingPaths.push(entry.savePath);
-      core.debug(`❌ Save path not found: ${entry.savePath}`);
-    }
+  const args = ['save', workspace, entries];
+  if (force) {
+    args.push('--force');
+  }
+  if (enableCrossOsArchive || noPlatform) {
+    args.push('--no-platform');
+  }
+  if (verbose) {
+    args.push('--verbose');
+  }
+  if (exclude) {
+    args.push('--exclude', exclude);
   }
 
-  if (missingPaths.length > 0) {
-    core.warning(`Some cache paths do not exist: ${missingPaths.join(', ')}`);
-  }
-
-  if (validEntries.length === 0) {
-    core.warning('No valid cache paths found, skipping save');
-    return;
-  }
-  // Use unified tag:path format for save locations
-  const formattedEntries = validEntries.map(e => `${e.tag}:${e.savePath}`).join(',');
-  core.info(`💾 Saving cache entries: ${formattedEntries}`);
-
-    // Handle GitHub Actions-specific features by translating to CLI equivalents
-    // enableCrossOsArchive maps to --no-platform CLI flag (both disable platform suffixes)
-    
-    // Build CLI command with supported flags
-    const args = ['save', workspace, formattedEntries];
-    if (force) {
-      args.push('--force');
-    }
-    // Translate enableCrossOsArchive to --no-platform, or use explicit no-platform setting
-    if (enableCrossOsArchive || noPlatform) {
-      args.push('--no-platform');
-    }
-    if (verbose) {
-      args.push('--verbose');
-    }
-    if (exclude) {
-      args.push('--exclude', exclude);
-    }
-
-    const result = await execBoringCache(args, { ignoreReturnCode: true });
-
-  if (result === 0) {
-    core.info(`✅ Successfully saved ${validEntries.length} cache entries`);
-  } else {
-    core.warning(`⚠️ Failed to save cache entries`);
-  }
+  await execBoringCache(args);
 }
 
 run();

@@ -1,5 +1,4 @@
 import * as core from '@actions/core';
-import * as fs from 'fs';
 import { ensureBoringCache, getCacheConfig, validateInputs, resolvePaths, execBoringCache } from './utils';
 
 async function run(): Promise<void> {
@@ -20,56 +19,27 @@ async function run(): Promise<void> {
 
     const config = await getCacheConfig(inputs.key, inputs.enableCrossOsArchive, inputs.noPlatform);
     const resolvedPaths = resolvePaths(inputs.path);
-    
-    await saveCache(config.workspace, resolvedPaths, config.fullKey, inputs.force, inputs.verbose, inputs.enableCrossOsArchive, inputs.noPlatform, inputs.exclude);
+    const pathList = resolvedPaths.split('\n').map(p => p.trim()).filter(p => p);
+    const entries = pathList.map(p => `${config.fullKey}:${p}`).join(',');
+
+    const args = ['save', config.workspace, entries];
+    if (inputs.force) {
+      args.push('--force');
+    }
+    if (inputs.enableCrossOsArchive || inputs.noPlatform) {
+      args.push('--no-platform');
+    }
+    if (inputs.verbose) {
+      args.push('--verbose');
+    }
+    if (inputs.exclude) {
+      args.push('--exclude', inputs.exclude);
+    }
+
+    await execBoringCache(args);
 
   } catch (error) {
     core.setFailed(`Cache save failed: ${error instanceof Error ? error.message : String(error)}`);
-  }
-}
-
-async function saveCache(workspace: string, paths: string, key: string, force: boolean = false, verbose: boolean = false, enableCrossOsArchive: boolean = false, noPlatform: boolean = false, exclude: string = ''): Promise<void> {
-  const pathList = paths.split('\n').map(p => p.trim()).filter(p => p);
-  const validPaths: string[] = [];
-  
-
-  for (const cachePath of pathList) {
-    try {
-      await fs.promises.access(cachePath);
-      validPaths.push(cachePath);
-    } catch {
-      core.warning(`Path does not exist: ${cachePath}`);
-    }
-  }
-
-  if (validPaths.length === 0) {
-    core.warning('No valid cache paths found, skipping save');
-    return;
-  }
-
-  core.info(`💾 Saving cache: ${key} ← ${validPaths.join(', ')}`);
-  for (const cachePath of validPaths) {
-    const args = ['save', workspace, `${key}:${cachePath}`];
-    if (force) {
-      args.push('--force');
-    }
-    // Translate enableCrossOsArchive to --no-platform
-    if (enableCrossOsArchive || noPlatform) {
-      args.push('--no-platform');
-    }
-    if (verbose) {
-      args.push('--verbose');
-    }
-    if (exclude) {
-      args.push('--exclude', exclude);
-    }
-    const result = await execBoringCache(args, { ignoreReturnCode: true });
-
-    if (result === 0) {
-      core.info(`✅ Saved: ${cachePath}`);
-    } else {
-      core.warning(`⚠️ Failed to save: ${cachePath}`);
-    }
   }
 }
 

@@ -45303,7 +45303,6 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(37484));
-const fs = __importStar(__nccwpck_require__(79896));
 const utils_1 = __nccwpck_require__(2219);
 async function run() {
     try {
@@ -45334,7 +45333,6 @@ async function run() {
             const workspace = (0, utils_1.getWorkspace)(inputs);
             let entriesString;
             if (inputs.entries) {
-                // CLI format entries use tag:path format (unified)
                 entriesString = inputs.entries;
             }
             else {
@@ -45348,38 +45346,10 @@ async function run() {
     }
 }
 async function saveCache(workspace, entries, force = false, noPlatform = false, verbose = false, enableCrossOsArchive = false, exclude = '') {
-    const entryList = (0, utils_1.parseEntries)(entries, 'save');
-    const validEntries = [];
-    const missingPaths = [];
-    for (const entry of entryList) {
-        try {
-            await fs.promises.access(entry.savePath);
-            validEntries.push({ savePath: entry.savePath, tag: entry.tag });
-            core.debug(`✅ Path exists for save: ${entry.savePath}`);
-        }
-        catch {
-            missingPaths.push(entry.savePath);
-            core.debug(`❌ Save path not found: ${entry.savePath}`);
-        }
-    }
-    if (missingPaths.length > 0) {
-        core.warning(`Some cache paths do not exist: ${missingPaths.join(', ')}`);
-    }
-    if (validEntries.length === 0) {
-        core.warning('No valid cache paths found, skipping save');
-        return;
-    }
-    // Use unified tag:path format for save locations
-    const formattedEntries = validEntries.map(e => `${e.tag}:${e.savePath}`).join(',');
-    core.info(`💾 Saving cache entries: ${formattedEntries}`);
-    // Handle GitHub Actions-specific features by translating to CLI equivalents
-    // enableCrossOsArchive maps to --no-platform CLI flag (both disable platform suffixes)
-    // Build CLI command with supported flags
-    const args = ['save', workspace, formattedEntries];
+    const args = ['save', workspace, entries];
     if (force) {
         args.push('--force');
     }
-    // Translate enableCrossOsArchive to --no-platform, or use explicit no-platform setting
     if (enableCrossOsArchive || noPlatform) {
         args.push('--no-platform');
     }
@@ -45389,13 +45359,7 @@ async function saveCache(workspace, entries, force = false, noPlatform = false, 
     if (exclude) {
         args.push('--exclude', exclude);
     }
-    const result = await (0, utils_1.execBoringCache)(args, { ignoreReturnCode: true });
-    if (result === 0) {
-        core.info(`✅ Successfully saved ${validEntries.length} cache entries`);
-    }
-    else {
-        core.warning(`⚠️ Failed to save cache entries`);
-    }
+    await (0, utils_1.execBoringCache)(args);
 }
 run();
 
