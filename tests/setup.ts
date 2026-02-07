@@ -4,6 +4,7 @@ import * as exec from '@actions/exec';
 jest.mock('@actions/core', () => ({
   getInput: jest.fn(),
   getBooleanInput: jest.fn(),
+  getState: jest.fn(),
   setOutput: jest.fn(),
   setFailed: jest.fn(),
   setSecret: jest.fn(),
@@ -87,4 +88,8 @@ export const mockGetInput = (inputs: {[key: string]: string}) => {
 
 export const mockGetBooleanInput = (inputs: {[key: string]: boolean}) => {
   (core.getBooleanInput as jest.Mock).mockImplementation((name: string) => inputs[name] || false);
+};
+
+export const mockGetState = (states: {[key: string]: string}) => {
+  (core.getState as jest.Mock).mockImplementation((name: string) => states[name] || '');
 };

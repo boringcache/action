@@ -1,16 +1,20 @@
 import * as core from '@actions/core';
 import { ensureBoringCache, validateInputs, parseEntries, getWorkspace, convertCacheFormatToEntries, execBoringCache } from './utils';
 
-async function run(): Promise<void> {
+export async function run(): Promise<void> {
   try {
     const cacheEntries = core.getState('cache-entries');
     const workspace = core.getState('cache-workspace');
     const exclude = core.getState('cache-exclude');
     const cliVersionState = core.getState('cli-version');
+    const noPlatform = core.getState('no-platform') === 'true';
+    const enableCrossOsArchive = core.getState('enableCrossOsArchive') === 'true';
+    const force = core.getState('force') === 'true';
+    const verbose = core.getState('verbose') === 'true';
 
     if (cacheEntries && workspace) {
       await ensureBoringCache({ version: cliVersionState || 'v1.0.0' });
-      await saveCache(workspace, cacheEntries, false, false, false, false, exclude);
+      await saveCache(workspace, cacheEntries, force, noPlatform, verbose, enableCrossOsArchive, exclude);
     } else {
       const cliVersion = core.getInput('cli-version') || 'v1.0.0';
       const inputs = {
