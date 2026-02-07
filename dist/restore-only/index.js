@@ -45302,14 +45302,17 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.run = run;
 const core = __importStar(__nccwpck_require__(37484));
 const utils_1 = __nccwpck_require__(2219);
 async function run() {
     try {
         const cliVersion = core.getInput('cli-version') || 'v1.0.0';
         const inputs = {
-            path: core.getInput('path', { required: true }),
-            key: core.getInput('key', { required: true }),
+            workspace: core.getInput('workspace'),
+            entries: core.getInput('entries'),
+            path: core.getInput('path'),
+            key: core.getInput('key'),
             restoreKeys: core.getInput('restore-keys'),
             enableCrossOsArchive: core.getBooleanInput('enableCrossOsArchive'),
             noPlatform: core.getBooleanInput('no-platform'),
@@ -45319,79 +45322,79 @@ async function run() {
         };
         (0, utils_1.validateInputs)(inputs);
         await (0, utils_1.ensureBoringCache)({ version: cliVersion });
-        const config = await (0, utils_1.getCacheConfig)(inputs.key, inputs.enableCrossOsArchive, inputs.noPlatform);
-        const resolvedPaths = (0, utils_1.resolvePaths)(inputs.path);
-        const pathList = resolvedPaths.split('\n').filter(p => p);
-        const targetPath = pathList[0];
-        let cacheHit = false;
-        let matchedKey = '';
-        core.info(`🔍 Restoring cache: ${config.fullKey} → ${targetPath}`);
-        const args = ['restore', config.workspace, `${config.fullKey}:${targetPath}`];
-        // Translate enableCrossOsArchive to --no-platform
-        if (inputs.enableCrossOsArchive || inputs.noPlatform) {
-            args.push('--no-platform');
-        }
-        if (inputs.failOnCacheMiss) {
-            args.push('--fail-on-cache-miss');
-        }
-        if (inputs.lookupOnly) {
-            args.push('--lookup-only');
-        }
-        if (inputs.verbose) {
-            args.push('--verbose');
-        }
-        let lastExitCode = await (0, utils_1.execBoringCache)(args, { ignoreReturnCode: true });
-        if (lastExitCode === 0) {
-            cacheHit = true;
-            matchedKey = config.fullKey;
-            core.info('✅ Cache hit with primary key');
+        const workspace = (0, utils_1.getWorkspace)(inputs);
+        let entriesString;
+        if (inputs.entries) {
+            entriesString = inputs.entries;
         }
         else {
+            entriesString = (0, utils_1.convertCacheFormatToEntries)(inputs, 'restore');
+        }
+        const entries = (0, utils_1.parseEntries)(entriesString, 'restore');
+        const shouldDisablePlatform = inputs.enableCrossOsArchive || inputs.noPlatform;
+        let cacheHit = false;
+        let primaryKey = '';
+        let matchedKey = '';
+        core.info(`Attempting to restore cache entries: ${entriesString}`);
+        const restoreArgs = ['restore', workspace, entriesString];
+        if (shouldDisablePlatform) {
+            restoreArgs.push('--no-platform');
+        }
+        if (inputs.failOnCacheMiss) {
+            restoreArgs.push('--fail-on-cache-miss');
+        }
+        if (inputs.lookupOnly) {
+            restoreArgs.push('--lookup-only');
+        }
+        if (inputs.verbose) {
+            restoreArgs.push('--verbose');
+        }
+        const primaryResult = await (0, utils_1.execBoringCache)(restoreArgs, { ignoreReturnCode: true });
+        if (primaryResult === 0) {
+            core.info('Cache hit with primary entries');
+            cacheHit = true;
+            primaryKey = entries.map(e => e.tag).join(',');
+            matchedKey = primaryKey;
+        }
+        else {
+            core.info('Cache miss with primary entries');
             if (inputs.restoreKeys) {
+                core.info('Trying restore keys...');
                 const restoreKeysList = inputs.restoreKeys.split('\n').map(k => k.trim()).filter(k => k);
-                const suffix = config.platformSuffix || '';
                 for (const restoreKey of restoreKeysList) {
-                    let candidateKey = restoreKey;
-                    if (suffix && !restoreKey.endsWith(suffix)) {
-                        candidateKey = `${restoreKey}${suffix}`;
-                    }
-                    const restoreArgs = ['restore', config.workspace, `${candidateKey}:${targetPath}`];
-                    // Translate enableCrossOsArchive to --no-platform
-                    if (inputs.enableCrossOsArchive || inputs.noPlatform) {
-                        restoreArgs.push('--no-platform');
+                    const platformSuffix = (0, utils_1.getPlatformSuffix)(shouldDisablePlatform, inputs.enableCrossOsArchive);
+                    const fullRestoreKey = restoreKey + platformSuffix;
+                    const fallbackEntry = `${fullRestoreKey}:${entries[0].restorePath}`;
+                    core.info(`Attempting restore key: ${fallbackEntry}`);
+                    const fallbackArgs = ['restore', workspace, fallbackEntry];
+                    if (shouldDisablePlatform) {
+                        fallbackArgs.push('--no-platform');
                     }
                     if (inputs.failOnCacheMiss) {
-                        restoreArgs.push('--fail-on-cache-miss');
+                        fallbackArgs.push('--fail-on-cache-miss');
                     }
                     if (inputs.lookupOnly) {
-                        restoreArgs.push('--lookup-only');
+                        fallbackArgs.push('--lookup-only');
                     }
                     if (inputs.verbose) {
-                        restoreArgs.push('--verbose');
+                        fallbackArgs.push('--verbose');
                     }
-                    lastExitCode = await (0, utils_1.execBoringCache)(restoreArgs, { ignoreReturnCode: true });
-                    if (lastExitCode === 0) {
+                    const restoreResult = await (0, utils_1.execBoringCache)(fallbackArgs, { ignoreReturnCode: true });
+                    if (restoreResult === 0) {
+                        core.info(`Cache hit with restore key: ${fullRestoreKey}`);
                         cacheHit = true;
-                        matchedKey = candidateKey;
-                        core.info(`✅ Cache hit with restore key: ${candidateKey}`);
+                        matchedKey = fullRestoreKey;
                         break;
                     }
                 }
             }
         }
-        // Note: --fail-on-cache-miss is now handled by CLI itself
-        // CLI will exit with non-zero status if cache miss occurs and flag is set
-        // The exec.exec with ignoreReturnCode will capture the exit code
-        if (!cacheHit) {
-            const missMessage = `Cache restore miss for key ${config.fullKey}`;
-            if (inputs.failOnCacheMiss) {
-                core.setFailed(missMessage);
-                return;
-            }
-            core.info(`⚠️ ${missMessage}`);
+        if (inputs.failOnCacheMiss && !cacheHit) {
+            core.setFailed('Cache miss and fail-on-cache-miss is enabled');
+            return;
         }
         core.setOutput('cache-hit', cacheHit.toString());
-        core.setOutput('cache-primary-key', config.fullKey);
+        core.setOutput('cache-primary-key', primaryKey);
         core.setOutput('cache-matched-key', matchedKey);
     }
     catch (error) {

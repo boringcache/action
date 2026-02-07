@@ -1,12 +1,14 @@
 import * as core from '@actions/core';
-import { ensureBoringCache, getCacheConfig, validateInputs, resolvePaths, execBoringCache } from './utils';
+import { ensureBoringCache, execBoringCache, validateInputs, getWorkspace, convertCacheFormatToEntries } from './utils';
 
-async function run(): Promise<void> {
+export async function run(): Promise<void> {
   try {
     const cliVersion = core.getInput('cli-version') || 'v1.0.0';
     const inputs = {
-      path: core.getInput('path', { required: true }),
-      key: core.getInput('key', { required: true }),
+      workspace: core.getInput('workspace'),
+      entries: core.getInput('entries'),
+      path: core.getInput('path'),
+      key: core.getInput('key'),
       enableCrossOsArchive: core.getBooleanInput('enableCrossOsArchive'),
       noPlatform: core.getBooleanInput('no-platform'),
       force: core.getBooleanInput('force'),
@@ -17,12 +19,16 @@ async function run(): Promise<void> {
     validateInputs(inputs);
     await ensureBoringCache({ version: cliVersion });
 
-    const config = await getCacheConfig(inputs.key, inputs.enableCrossOsArchive, inputs.noPlatform);
-    const resolvedPaths = resolvePaths(inputs.path);
-    const pathList = resolvedPaths.split('\n').map(p => p.trim()).filter(p => p);
-    const entries = pathList.map(p => `${config.fullKey}:${p}`).join(',');
+    const workspace = getWorkspace(inputs);
 
-    const args = ['save', config.workspace, entries];
+    let entriesString: string;
+    if (inputs.entries) {
+      entriesString = inputs.entries;
+    } else {
+      entriesString = convertCacheFormatToEntries(inputs, 'save');
+    }
+
+    const args = ['save', workspace, entriesString];
     if (inputs.force) {
       args.push('--force');
     }

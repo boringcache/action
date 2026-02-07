@@ -45302,6 +45302,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.run = run;
 const core = __importStar(__nccwpck_require__(37484));
 const utils_1 = __nccwpck_require__(2219);
 async function run() {
@@ -45310,9 +45311,13 @@ async function run() {
         const workspace = core.getState('cache-workspace');
         const exclude = core.getState('cache-exclude');
         const cliVersionState = core.getState('cli-version');
+        const noPlatform = core.getState('no-platform') === 'true';
+        const enableCrossOsArchive = core.getState('enableCrossOsArchive') === 'true';
+        const force = core.getState('force') === 'true';
+        const verbose = core.getState('verbose') === 'true';
         if (cacheEntries && workspace) {
             await (0, utils_1.ensureBoringCache)({ version: cliVersionState || 'v1.0.0' });
-            await saveCache(workspace, cacheEntries, false, false, false, false, exclude);
+            await saveCache(workspace, cacheEntries, force, noPlatform, verbose, enableCrossOsArchive, exclude);
         }
         else {
             const cliVersion = core.getInput('cli-version') || 'v1.0.0';

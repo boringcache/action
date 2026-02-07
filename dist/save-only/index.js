@@ -45302,14 +45302,17 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.run = run;
 const core = __importStar(__nccwpck_require__(37484));
 const utils_1 = __nccwpck_require__(2219);
 async function run() {
     try {
         const cliVersion = core.getInput('cli-version') || 'v1.0.0';
         const inputs = {
-            path: core.getInput('path', { required: true }),
-            key: core.getInput('key', { required: true }),
+            workspace: core.getInput('workspace'),
+            entries: core.getInput('entries'),
+            path: core.getInput('path'),
+            key: core.getInput('key'),
             enableCrossOsArchive: core.getBooleanInput('enableCrossOsArchive'),
             noPlatform: core.getBooleanInput('no-platform'),
             force: core.getBooleanInput('force'),
@@ -45318,11 +45321,15 @@ async function run() {
         };
         (0, utils_1.validateInputs)(inputs);
         await (0, utils_1.ensureBoringCache)({ version: cliVersion });
-        const config = await (0, utils_1.getCacheConfig)(inputs.key, inputs.enableCrossOsArchive, inputs.noPlatform);
-        const resolvedPaths = (0, utils_1.resolvePaths)(inputs.path);
-        const pathList = resolvedPaths.split('\n').map(p => p.trim()).filter(p => p);
-        const entries = pathList.map(p => `${config.fullKey}:${p}`).join(',');
-        const args = ['save', config.workspace, entries];
+        const workspace = (0, utils_1.getWorkspace)(inputs);
+        let entriesString;
+        if (inputs.entries) {
+            entriesString = inputs.entries;
+        }
+        else {
+            entriesString = (0, utils_1.convertCacheFormatToEntries)(inputs, 'save');
+        }
+        const args = ['save', workspace, entriesString];
         if (inputs.force) {
             args.push('--force');
         }

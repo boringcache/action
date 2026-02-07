@@ -45320,6 +45320,7 @@ async function run() {
             failOnCacheMiss: core.getBooleanInput('fail-on-cache-miss'),
             lookupOnly: core.getBooleanInput('lookup-only'),
             verbose: core.getBooleanInput('verbose'),
+            force: core.getBooleanInput('force'),
             exclude: core.getInput('exclude'),
         };
         (0, utils_1.validateInputs)(inputs);
@@ -45392,6 +45393,10 @@ async function run() {
         core.saveState('cache-workspace', workspace);
         core.saveState('cache-exclude', inputs.exclude);
         core.saveState('cli-version', cliVersion);
+        core.saveState('no-platform', String(inputs.noPlatform));
+        core.saveState('enableCrossOsArchive', String(inputs.enableCrossOsArchive));
+        core.saveState('force', String(inputs.force));
+        core.saveState('verbose', String(inputs.verbose));
     }
     catch (error) {
         core.setFailed(`Cache restore failed: ${error instanceof Error ? error.message : String(error)}`);
