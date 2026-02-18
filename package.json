@@ -1,6 +1,6 @@
 {
   "name": "boringcache-action",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Cache once. Reuse everywhere. Drop-in replacement for actions/cache.",
   "main": "dist/restore/index.js",
   "scripts": {

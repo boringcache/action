@@ -42,7 +42,7 @@ describe('Integration Tests', () => {
 
       // CLI setup is handled by action-core (ensureBoringCache)
       const { ensureBoringCache } = require('@boringcache/action-core');
-      expect(ensureBoringCache).toHaveBeenCalledWith({ version: 'v1.0.0' });
+      expect(ensureBoringCache).toHaveBeenCalledWith({ version: 'v1.0.1' });
 
       // Verify restore command was called
       expect(exec.exec).toHaveBeenCalledWith(
