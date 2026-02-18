@@ -41614,7 +41614,7 @@ const core = __importStar(__nccwpck_require__(7484));
 const utils_1 = __nccwpck_require__(2219);
 async function run() {
     try {
-        const cliVersion = core.getInput('cli-version') || 'v1.0.2';
+        const cliVersion = core.getInput('cli-version') || 'v1.0.3';
         const inputs = {
             workspace: core.getInput('workspace'),
             entries: core.getInput('entries'),
