@@ -139,11 +139,11 @@ describe('Utils (Simple)', () => {
     });
 
     it('should call action-core ensureBoringCache', async () => {
-      await ensureBoringCache({ version: 'v1.0.1' });
+      await ensureBoringCache({ version: 'v1.0.2' });
 
       // ensureBoringCache is mocked in setup.ts
       const { ensureBoringCache: mockedEnsure } = require('@boringcache/action-core');
-      expect(mockedEnsure).toHaveBeenCalledWith({ version: 'v1.0.1' });
+      expect(mockedEnsure).toHaveBeenCalledWith({ version: 'v1.0.2' });
     });
 
     it('should mask token when available (auth is automatic)', async () => {
