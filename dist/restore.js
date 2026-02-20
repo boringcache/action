@@ -39,7 +39,7 @@ const utils_1 = require("./utils");
 async function run() {
     var _a, _b, _c, _d;
     try {
-        const cliVersion = core.getInput('cli-version') || 'v1.1.1';
+        const cliVersion = core.getInput('cli-version') || 'v1.2.0';
         const inputs = {
             workspace: core.getInput('workspace'),
             entries: core.getInput('entries'),

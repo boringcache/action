@@ -48,11 +48,15 @@ jest.mock('fs', () => ({
 const mockEnsureBoringCache = jest.fn();
 const mockExecBoringCache = jest.fn();
 
-// Mock @boringcache/action-core
-jest.mock('@boringcache/action-core', () => ({
-  ensureBoringCache: mockEnsureBoringCache,
-  execBoringCache: mockExecBoringCache,
-}));
+// Mock @boringcache/action-core — keep real utility functions, mock CLI interactions
+jest.mock('@boringcache/action-core', () => {
+  const actual = jest.requireActual('@boringcache/action-core');
+  return {
+    ...actual,
+    ensureBoringCache: mockEnsureBoringCache,
+    execBoringCache: mockExecBoringCache,
+  };
+});
 
 const originalEnv = process.env;
 
