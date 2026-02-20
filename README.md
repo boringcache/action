@@ -1,14 +1,8 @@
 # boringcache/action
 
-**Cache once. Reuse everywhere.**
+Cache any directory in GitHub Actions with BoringCache. Drop-in replacement for `actions/cache`.
 
-BoringCache is a universal build artifact cache for CI, Docker, and local development. It stores and restores directories you choose so build outputs, dependencies, and tool caches can be reused across environments.
-
-BoringCache does not run builds and is not tied to any build tool. It works with any language, framework, or workflow by caching directories explicitly selected by the user.
-
-Caches are content-addressed and verified before restore. If identical content already exists, uploads are skipped. The same cache can be reused in GitHub Actions, Docker/BuildKit, and on developer machines using the same CLI.
-
-This action is a drop-in replacement for `actions/cache` that integrates BoringCache into GitHub Actions workflows.
+Restores cached directories before your job runs and saves them when it finishes. Caches are content-addressed — identical content is never re-uploaded.
 
 ## Quick start
 
@@ -127,7 +121,7 @@ COPY . .
 | `path` | No | - | Files/directories to cache (actions/cache compatible). |
 | `key` | No | - | Cache key (actions/cache compatible). |
 | `restore-keys` | No | - | Fallback restore keys (actions/cache compatible). |
-| `cli-version` | No | `v1.0.2` | BoringCache CLI version. Set to `skip` to disable installation. |
+| `cli-version` | No | `v1.2.0` | BoringCache CLI version. Set to `skip` to disable installation. |
 | `enableCrossOsArchive` | No | `false` | Enable cross-OS sharing by disabling platform suffixes (actions/cache compatibility). |
 | `save-always` | No | `false` | Save even if earlier steps fail. |
 | `no-platform` | No | `false` | Disable OS/arch scoping for cache tags. |
