@@ -380,7 +380,7 @@ describe('Windows PATH/installer fallback - ensureBoringCache via Git Bash', () 
     await restoreRun();
 
     // Verify ensureBoringCache was called (handles Windows-specific PATH issues)
-    expect(ensureBoringCache).toHaveBeenCalledWith({ version: 'v1.1.0' });
+    expect(ensureBoringCache).toHaveBeenCalledWith({ version: 'v1.1.1' });
 
     // Verify restore command was called
     const calls = (exec.exec as unknown as jest.Mock).mock.calls;

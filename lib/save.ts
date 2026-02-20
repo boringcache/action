@@ -13,10 +13,10 @@ export async function run(): Promise<void> {
     const verbose = core.getState('verbose') === 'true';
 
     if (cacheEntries && workspace) {
-      await ensureBoringCache({ version: cliVersionState || 'v1.1.0' });
+      await ensureBoringCache({ version: cliVersionState || 'v1.1.1' });
       await saveCache(workspace, cacheEntries, force, noPlatform, verbose, enableCrossOsArchive, exclude);
     } else {
-      const cliVersion = core.getInput('cli-version') || 'v1.1.0';
+      const cliVersion = core.getInput('cli-version') || 'v1.1.1';
       const inputs = {
         workspace: core.getInput('workspace'),
         entries: core.getInput('entries'),
