@@ -38,7 +38,7 @@ const core = __importStar(require("@actions/core"));
 const utils_1 = require("./utils");
 async function run() {
     try {
-        const cliVersion = core.getInput('cli-version') || 'v1.2.0';
+        const cliVersion = core.getInput('cli-version') || 'v1.3.0';
         const inputs = {
             workspace: core.getInput('workspace'),
             entries: core.getInput('entries'),

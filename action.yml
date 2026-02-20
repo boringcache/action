@@ -4,7 +4,7 @@ author: 'BoringCache'
 inputs:
   cli-version:
     description: 'Version of BoringCache CLI to install (e.g., v1.0.1). Set to "skip" to disable automatic CLI setup.'
-    default: 'v1.2.0'
+    default: 'v1.3.0'
     required: false
   workspace:
     description: 'Workspace identifier in format namespace/workspace (e.g., my-org/my-project). If not provided, uses repository name.'
