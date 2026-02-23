@@ -3,7 +3,7 @@ import { ensureBoringCache, execBoringCache, validateInputs, parseEntries, getPl
 
 export async function run(): Promise<void> {
   try {
-    const cliVersion = core.getInput('cli-version') || 'v1.3.0';
+    const cliVersion = core.getInput('cli-version') || 'v1.5.0';
     const inputs = {
       workspace: core.getInput('workspace'),
       entries: core.getInput('entries'),

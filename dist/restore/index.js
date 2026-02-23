@@ -42124,7 +42124,7 @@ const utils_1 = __nccwpck_require__(2219);
 async function run() {
     var _a, _b, _c, _d;
     try {
-        const cliVersion = core.getInput('cli-version') || 'v1.3.0';
+        const cliVersion = core.getInput('cli-version') || 'v1.5.0';
         const inputs = {
             workspace: core.getInput('workspace'),
             entries: core.getInput('entries'),
