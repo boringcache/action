@@ -42132,11 +42132,11 @@ async function run() {
         const force = core.getState('force') === 'true';
         const verbose = core.getState('verbose') === 'true';
         if (cacheEntries && workspace) {
-            await (0, utils_1.ensureBoringCache)({ version: cliVersionState || 'v1.5.0' });
+            await (0, utils_1.ensureBoringCache)({ version: cliVersionState || core.getInput('cli-version') });
             await saveCache(workspace, cacheEntries, force, noPlatform, verbose, enableCrossOsArchive, exclude);
         }
         else {
-            const cliVersion = core.getInput('cli-version') || 'v1.5.0';
+            const cliVersion = core.getInput('cli-version');
             const inputs = {
                 workspace: core.getInput('workspace'),
                 entries: core.getInput('entries'),
