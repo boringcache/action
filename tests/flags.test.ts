@@ -95,7 +95,7 @@ describe('Flag consistency tests', () => {
       mockGetState({
         'cache-entries': 'deps:node_modules',
         'cache-workspace': 'ns/ws',
-        'cli-version': 'v1.6.0',
+        'cli-version': 'v1.7.0',
         'no-platform': 'true',
         enableCrossOsArchive: 'false',
         force: 'true',
@@ -121,7 +121,7 @@ describe('Flag consistency tests', () => {
       mockGetState({
         'cache-entries': 'deps:node_modules',
         'cache-workspace': 'ns/ws',
-        'cli-version': 'v1.6.0',
+        'cli-version': 'v1.7.0',
         'no-platform': 'false',
         enableCrossOsArchive: 'true',
         force: 'false',
@@ -147,7 +147,7 @@ describe('Flag consistency tests', () => {
       mockGetState({
         'cache-entries': 'deps:node_modules',
         'cache-workspace': 'ns/ws',
-        'cli-version': 'v1.6.0',
+        'cli-version': 'v1.7.0',
         'no-platform': 'false',
         enableCrossOsArchive: 'false',
         force: 'false',
@@ -171,7 +171,7 @@ describe('Flag consistency tests', () => {
       mockGetState({
         'cache-entries': 'deps:node_modules',
         'cache-workspace': 'ns/ws',
-        'cli-version': 'v1.6.0',
+        'cli-version': 'v1.7.0',
         'cache-exclude': '*.log',
         'no-platform': 'false',
         enableCrossOsArchive: 'false',

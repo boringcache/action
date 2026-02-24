@@ -121,7 +121,7 @@ COPY . .
 | `path` | No | - | Files/directories to cache (actions/cache compatible). |
 | `key` | No | - | Cache key (actions/cache compatible). |
 | `restore-keys` | No | - | Fallback restore keys (actions/cache compatible). |
-| `cli-version` | No | `v1.6.0` | BoringCache CLI version. Set to `skip` to disable installation. |
+| `cli-version` | No | `v1.7.0` | BoringCache CLI version. Set to `skip` to disable installation. |
 | `enableCrossOsArchive` | No | `false` | Enable cross-OS sharing by disabling platform suffixes (actions/cache compatibility). |
 | `save-always` | No | `false` | Save even if earlier steps fail. |
 | `no-platform` | No | `false` | Disable OS/arch scoping for cache tags. |
