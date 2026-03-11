@@ -1,6 +1,6 @@
 {
   "name": "boringcache-action",
-  "version": "1.12.2",
+  "version": "1.12.3",
   "description": "Cache once. Reuse everywhere. Drop-in replacement for actions/cache.",
   "main": "dist/restore/index.js",
   "scripts": {
@@ -22,7 +22,7 @@
   "dependencies": {
     "@actions/core": "^1.11.1",
     "@actions/exec": "^1.1.1",
-    "@boringcache/action-core": "^1.12.2"
+    "@boringcache/action-core": "^1.12.3"
   },
   "devDependencies": {
     "@actions/cache": "^4.1.0",
