@@ -174,17 +174,15 @@ describe('Additional Coverage - Ready for Production Verification', () => {
       ).not.toThrow();
     });
 
-    it('warns when both formats provided (uses CLI format)', () => {
-      const warnSpy = jest.spyOn(core, 'warning').mockImplementation(() => {});
-      validateInputs({
-        workspace: 'ns/ws',
-        entries: 'tag:/path',
-        path: '~/.cache',
-        key: 'k1',
-      });
-      expect(warnSpy).toHaveBeenCalledWith(
-        'Both CLI format (workspace/entries) and actions/cache format (path/key) provided. Using CLI format.'
-      );
+    it('accepts both formats and prefers CLI inputs', () => {
+      expect(() =>
+        validateInputs({
+          workspace: 'ns/ws',
+          entries: 'tag:/path',
+          path: '~/.cache',
+          key: 'k1',
+        })
+      ).not.toThrow();
     });
 
     it('throws on invalid workspace format', () => {

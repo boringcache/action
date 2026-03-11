@@ -35,9 +35,14 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.run = run;
 const core = __importStar(require("@actions/core"));
+const action_core_1 = require("@boringcache/action-core");
 const utils_1 = require("./utils");
 async function run() {
     try {
+        if (!(0, action_core_1.hasSaveToken)()) {
+            core.notice(`Save skipped: ${(0, action_core_1.missingSaveTokenMessage)()}`);
+            return;
+        }
         const cacheEntries = core.getState('cache-entries');
         const workspace = core.getState('cache-workspace');
         const exclude = core.getState('cache-exclude');

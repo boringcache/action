@@ -12,8 +12,20 @@ Restores cached directories before your job runs and saves them when it finishes
     workspace: my-org/my-project
     entries: deps:node_modules,build:dist
   env:
-    BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN }}
+    BORINGCACHE_SAVE_TOKEN: ${{ secrets.BORINGCACHE_SAVE_TOKEN }}
 ```
+
+## Recommended auth model
+
+For new workflows, provide a restore token to every job and only provide a save token to trusted branch/tag jobs:
+
+```yaml
+env:
+  BORINGCACHE_RESTORE_TOKEN: ${{ secrets.BORINGCACHE_RESTORE_TOKEN }}
+  BORINGCACHE_SAVE_TOKEN: ${{ github.event_name == 'pull_request' && '' || secrets.BORINGCACHE_SAVE_TOKEN }}
+```
+
+`boringcache/action` restores normally on pull requests and skips the post-save step when no save-capable token is configured.
 
 ## Mental model
 
@@ -36,7 +48,7 @@ This action does not infer what should be cached and does not modify your build.
     workspace: my-org/my-project
     entries: deps:node_modules
   env:
-    BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN }}
+    BORINGCACHE_SAVE_TOKEN: ${{ secrets.BORINGCACHE_SAVE_TOKEN }}
 ```
 
 ### Advanced pattern: Shared bundle cache (runner + Dockerfile)
@@ -54,7 +66,7 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     env:
-      BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN }}
+      BORINGCACHE_SAVE_TOKEN: ${{ secrets.BORINGCACHE_SAVE_TOKEN }}
       BORINGCACHE_WORKSPACE: my-org/my-project
       BUNDLE_TAG: bundle
 
@@ -81,7 +93,7 @@ jobs:
             BORINGCACHE_WORKSPACE=${{ env.BORINGCACHE_WORKSPACE }}
             BUNDLE_TAG=${{ env.BUNDLE_TAG }}
           secrets: |
-            id=boringcache_token,env=BORINGCACHE_API_TOKEN
+            id=boringcache_token,env=BORINGCACHE_SAVE_TOKEN
 ```
 
 ```Dockerfile
@@ -102,7 +114,7 @@ WORKDIR /app
 COPY Gemfile Gemfile.lock ./
 
 RUN --mount=type=secret,id=boringcache_token \
-  export BORINGCACHE_API_TOKEN="$(cat /run/secrets/boringcache_token)" && \
+  export BORINGCACHE_SAVE_TOKEN="$(cat /run/secrets/boringcache_token)" && \
   curl -sSL https://install.boringcache.com/install.sh | sh && \
   boringcache restore "$BORINGCACHE_WORKSPACE" "${BUNDLE_TAG}:vendor/bundle" || true && \
   bundle config set path vendor/bundle && \
@@ -121,7 +133,7 @@ COPY . .
 | `path` | No | - | Files/directories to cache (actions/cache compatible). |
 | `key` | No | - | Cache key (actions/cache compatible). |
 | `restore-keys` | No | - | Fallback restore keys (actions/cache compatible). |
-| `cli-version` | No | `v1.7.2` | BoringCache CLI version. Set to `skip` to disable installation. |
+| `cli-version` | No | `v1.12.1` | BoringCache CLI version. Set to `skip` to disable installation. |
 | `enableCrossOsArchive` | No | `false` | Enable cross-OS sharing by disabling platform suffixes (actions/cache compatibility). |
 | `save-always` | No | `false` | Save even if earlier steps fail. |
 | `no-platform` | No | `false` | Disable OS/arch scoping for cache tags. |
@@ -149,7 +161,8 @@ By default, caches are isolated by OS and architecture. Use `no-platform: true` 
 
 | Variable | Description |
 |----------|-------------|
-| `BORINGCACHE_API_TOKEN` | API token (required) |
+| `BORINGCACHE_RESTORE_TOKEN` | Restore-capable token for pull requests and other read-only jobs |
+| `BORINGCACHE_SAVE_TOKEN` | Save-capable token for trusted jobs that should publish cache updates |
 | `BORINGCACHE_DEFAULT_WORKSPACE` | Default workspace (if not specified in inputs) |
 
 ## Migrating from actions/cache (optional)
@@ -158,7 +171,7 @@ By default, caches are isolated by OS and architecture. Use `no-platform: true` 
 - uses: actions/cache@v4
 + uses: boringcache/action@v1
 + env:
-+   BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN }}
++   BORINGCACHE_SAVE_TOKEN: ${{ secrets.BORINGCACHE_SAVE_TOKEN }}
 ```
 
 If you already use `path`, `key`, and `restore-keys`, those inputs are supported as-is.
@@ -171,12 +184,12 @@ If you already use `path`, `key`, and `restore-keys`, those inputs are supported
     restore-keys: |
       node-deps-
   env:
-    BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN }}
+    BORINGCACHE_SAVE_TOKEN: ${{ secrets.BORINGCACHE_SAVE_TOKEN }}
 ```
 
 ## Troubleshooting
 
-- Unauthorized or workspace not found: ensure `BORINGCACHE_API_TOKEN` is set and the workspace exists.
+- Unauthorized or workspace not found: ensure the appropriate BoringCache token is set and the workspace exists.
 - Cache miss: check `workspace` and `entries`, and remember platform scoping.
 - Cache hit detection: rely on the `cache-hit` output rather than CLI exit codes.
 

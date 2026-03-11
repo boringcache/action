@@ -89,6 +89,29 @@ describe('Flag consistency tests', () => {
   });
 
   describe('save.ts reads flags from state and passes correct CLI args', () => {
+    it('skips save when no save-capable token is configured', async () => {
+      delete process.env.BORINGCACHE_SAVE_TOKEN;
+
+      mockGetInput({});
+      mockGetBooleanInput({});
+      mockGetState({
+        'cache-entries': 'deps:node_modules',
+        'cache-workspace': 'ns/ws',
+        'cli-version': 'v1.7.2',
+      });
+
+      await saveRun();
+
+      expect(core.notice).toHaveBeenCalledWith(
+        'Save skipped: A save-capable token is required. Set BORINGCACHE_SAVE_TOKEN or BORINGCACHE_API_TOKEN.'
+      );
+      const calls = (exec.exec as jest.Mock).mock.calls;
+      const saveCall = calls.find(
+        (c: any[]) => c[0] === 'boringcache' && Array.isArray(c[1]) && c[1][0] === 'save'
+      );
+      expect(saveCall).toBeFalsy();
+    });
+
     it('passes --force --no-platform --verbose when state flags are true', async () => {
       mockGetInput({});
       mockGetBooleanInput({});
@@ -269,6 +292,22 @@ describe('Flag consistency tests', () => {
   });
 
   describe('save-only.ts passes all flags', () => {
+    it('fails fast when no save-capable token is configured', async () => {
+      delete process.env.BORINGCACHE_SAVE_TOKEN;
+
+      mockGetInput({
+        workspace: 'ns/ws',
+        entries: 'deps:node_modules',
+      });
+      mockGetBooleanInput({});
+
+      await saveOnlyRun();
+
+      expect(core.setFailed).toHaveBeenCalledWith(
+        'Cache save failed: A save-capable token is required. Set BORINGCACHE_SAVE_TOKEN or BORINGCACHE_API_TOKEN.'
+      );
+    });
+
     it('passes --force --no-platform --verbose --exclude', async () => {
       mockGetInput({
         workspace: 'ns/ws',

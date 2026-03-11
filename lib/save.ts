@@ -1,8 +1,14 @@
 import * as core from '@actions/core';
+import { hasSaveToken, missingSaveTokenMessage } from '@boringcache/action-core';
 import { ensureBoringCache, validateInputs, parseEntries, getWorkspace, convertCacheFormatToEntries, execBoringCache } from './utils';
 
 export async function run(): Promise<void> {
   try {
+    if (!hasSaveToken()) {
+      core.notice(`Save skipped: ${missingSaveTokenMessage()}`);
+      return;
+    }
+
     const cacheEntries = core.getState('cache-entries');
     const workspace = core.getState('cache-workspace');
     const exclude = core.getState('cache-exclude');

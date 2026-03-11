@@ -1,8 +1,13 @@
 import * as core from '@actions/core';
+import { hasSaveToken, missingSaveTokenMessage } from '@boringcache/action-core';
 import { ensureBoringCache, execBoringCache, validateInputs, getWorkspace, convertCacheFormatToEntries } from './utils';
 
 export async function run(): Promise<void> {
   try {
+    if (!hasSaveToken()) {
+      throw new Error(missingSaveTokenMessage());
+    }
+
     const cliVersion = core.getInput('cli-version');
     const inputs = {
       workspace: core.getInput('workspace'),

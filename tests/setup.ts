@@ -9,6 +9,7 @@ jest.mock('@actions/core', () => ({
   setFailed: jest.fn(),
   setSecret: jest.fn(),
   info: jest.fn(),
+  notice: jest.fn(),
   warning: jest.fn(),
   debug: jest.fn(),
   addPath: jest.fn(),
@@ -63,6 +64,7 @@ const originalEnv = process.env;
 beforeEach(() => {
   jest.resetAllMocks();
   process.env = { ...originalEnv };
+  process.env.BORINGCACHE_SAVE_TOKEN = 'test-save-token';
 
   // Re-configure the action-core mocks after resetAllMocks
   const execModule = require('@actions/exec');

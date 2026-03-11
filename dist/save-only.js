@@ -35,9 +35,13 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.run = run;
 const core = __importStar(require("@actions/core"));
+const action_core_1 = require("@boringcache/action-core");
 const utils_1 = require("./utils");
 async function run() {
     try {
+        if (!(0, action_core_1.hasSaveToken)()) {
+            throw new Error((0, action_core_1.missingSaveTokenMessage)());
+        }
         const cliVersion = core.getInput('cli-version');
         const inputs = {
             workspace: core.getInput('workspace'),
