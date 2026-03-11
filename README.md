@@ -1,8 +1,10 @@
 # boringcache/action
 
-Cache any directory in GitHub Actions with BoringCache.
+Cache any directory in GitHub Actions with one action.
 
-Use this when you want one action that restores near job start and saves at the end.
+## When to use it
+
+Choose this if you are replacing `actions/cache` and want the same shape: restore near the start of the job, save on the way out.
 
 ## Quick start
 
@@ -18,7 +20,14 @@ Use this when you want one action that restores near job start and saves at the 
 
 On `pull_request` jobs, restore still runs and the post-save step is skipped when no save-capable token is configured.
 
-## What it does
+## Trust model
+
+- On `pull_request` jobs, restore can run with `BORINGCACHE_RESTORE_TOKEN`.
+- Save is skipped cleanly when no save-capable token is present.
+- Use `BORINGCACHE_SAVE_TOKEN` only on trusted branch, tag, or manual jobs.
+- `BORINGCACHE_API_TOKEN` still works, but new workflows should prefer split tokens.
+
+## What it handles
 
 - Caches the directories you choose in `tag:path` form.
 - Supports `actions/cache`-style `path`, `key`, and `restore-keys` inputs.
@@ -44,7 +53,7 @@ On `pull_request` jobs, restore still runs and the post-save step is skipped whe
 | `cache-primary-key` | Primary key used for restore. |
 | `cache-matched-key` | Key that matched. |
 
-## Docs
+## Learn more
 
 - [GitHub Actions docs](https://boringcache.com/docs#action)
 - [GitHub Actions auth and trust model](https://boringcache.com/docs#actions-auth)
